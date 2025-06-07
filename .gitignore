@@ -36,4 +36,4 @@ override.tf.json
 .terraformrc
 terraform.rc
 
-3rdGenelation.pem
+3rd_hackathon.pem
