@@ -4,7 +4,8 @@
 # 1. OS パッケージの更新と基本ツールのインストール
 #-----------------------------------
 sudo dnf update -y
-sudo dnf install -y git wget curl vim
+sudo dnf install -y git
+sudo dnf install -y wget curl vim
 
 #-----------------------------------
 # 2. Docker のインストール（Amazon Linux 2023 の場合）
@@ -25,8 +26,7 @@ sudo usermod -aG docker ec2-user
 # GitHub からアプリケーション（Dockerfile 等）をクローンし、コンテナを構築する
 cd /home/ec2-user
 
-# 例として "app" というフォルダ名でクローンする
-# ↓↓↓ 実際のリポジトリ URL に置き換えてください ↓↓↓
+# gitクローン
 git clone https://github.com/Rikishi-com/3rd_generation_hackathon.git
 
 # 所有権を ec2-user に変えておく（必須ではありませんが安全のため）
@@ -44,8 +44,6 @@ cd /home/ec2-user/3rd_generation_hackathon
 docker build -t django-app .
 
 # 4.2 環境変数を設定してコンテナを起動
-#    ここでは例として、RDS(MySQL) のエンドポイント等を環境変数で渡しています。
-#    <RDS_ENDPOINT>、<DB_NAME>、<DB_USER>、<DB_PASSWORD> は実際の値に置き換えてください。
 docker run -d \
   --name django_app \
   -p 80:8000 \
