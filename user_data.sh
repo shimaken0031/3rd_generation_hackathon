@@ -29,7 +29,7 @@ cd /home/ec2-user
 # gitクローン
 git clone https://github.com/Rikishi-com/3rd_generation_hackathon.git
 
-# 所有権を ec2-user に変えておく（必須ではありませんが安全のため）
+# 所有権を ec2-user に変えておく
 sudo chown -R ec2-user:ec2-user /home/ec2-user/3rd_generation_hackathon
 
 #-----------------------------------
@@ -37,10 +37,10 @@ sudo chown -R ec2-user:ec2-user /home/ec2-user/3rd_generation_hackathon
 #-----------------------------------
 cd /home/ec2-user/3rd_generation_hackathon
 
-# ── 前提：リポジトリ直下に Dockerfile があるものとする ──
+# リポジトリ直下にDockerfileがあることが前提
 
 # 4.1 Docker イメージをビルド
-#    - "django-app" は任意のイメージ名です。お好みで変更してください。
+# django-appは任意名
 docker build -t django-app .
 
 # 4.2 環境変数を設定してコンテナを起動
@@ -56,7 +56,4 @@ docker run -d \
 
 
 
-#-----------------------------------
-# 6. 最後に（ログやデバッグ用に入れておくと便利）
-#-----------------------------------
 echo "completed" > /var/log/user_data.log

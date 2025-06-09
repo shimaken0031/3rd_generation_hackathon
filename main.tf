@@ -49,6 +49,22 @@ resource "aws_security_group" "app_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # 8000 ポートを開放
+    ingress {
+        from_port   = 8000
+        to_port     = 8000
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  #  8001ポートを開放
+    ingress {
+        from_port   = 8001
+        to_port     = 8001
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+  }
+
   tags = {
     Name = "hackathon-app-sg"
   }
