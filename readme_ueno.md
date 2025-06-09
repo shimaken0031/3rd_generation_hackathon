@@ -52,7 +52,7 @@ docker exec -it django-container bash
 ```bash
 ls
 ```
-- **GitHub**の`3rd_generation_hackathon`内のファイルがちゃんと格納されていたらOK
+- **GitHub**の`3rd_generation_hackathon`リポジトリにあるファイル達があればOK
 - なかったら`user_data.sh`の内容を上から順にコピーして
 
 ---
