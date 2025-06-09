@@ -21,31 +21,34 @@ MacとWindowsで違うかもしれないけれど，多分似通ってると思�
 
 ---
 
-##### 1
+**1**
 ```bash
 docker build -t my-django-app .
 ```
 - 初回はちょっと時間かかります
 <br>
-##### 2
+
+**2**
 ```bash
 docker run --rm my-django-app python manage.py migrate
 ```
 - 初回のみ必要
 <br>
-##### 3
+
+**3**
 ```bash
 docker run -d -p 8000:8000 --name django-container my-django-app
 ```
 <br>
 
-##### 4
+**4**
 ```bash
 docker exec -it django-container bash
 ```
 - これを実行するとLinuxのターミナルと同様の操作ができる
+<br>
 
-##### 5
+**5**
 ```bash
 ls
 ```
