@@ -4,8 +4,8 @@ MacとWindowsで違うかもしれないけれど，多分似通ってると思�
 
 ---
 
-### 1.GitHubから`Dockerfile`&`user_data.sh`をダウンロードする
-- **GitHub**からダウンロードしたファイルは同一ディレクトリに保存する(以下のような構成にして)
+### 1.GitHubから＊＊3rd_generation_hackathon**リポジトリをクローンする
+- **GitHub**からクローンしたファイルは同一ディレクトリに保存する(以下のような構成にして)
 ```tree
 .
 ├── Dockerfile
