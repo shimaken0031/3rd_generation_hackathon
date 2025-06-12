@@ -1,32 +1,46 @@
-# ┌───────────────────────────────────────────────────┐
-# │  Dockerfile                                      │
-# └───────────────────────────────────────────────────┘
+# syntax=docker/dockerfile:1
 
-# 1) ベースイメージとして Python 3.10 のスリム版を指定
-FROM python:3.10
+# ───────────────────────────────
+#  ベースイメージ
+# ───────────────────────────────
+FROM python:3.12-slim AS base
 
-# 2) コンテナ内の作業ディレクトリを /app に設定
+# 環境変数：ログ即時出力 & .pyc 抑制
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
 WORKDIR /app
 
-# 3) 必要な OS パッケージをインストール
-#    （MySQL ドライバをビルドするためのヘッダーを含む）
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-      build-essential \
-      default-libmysqlclient-dev \
-      pkg-config \
- && rm -rf /var/lib/apt/lists/*
+# ───────────────────────────────
+#  OS 依存パッケージ
+#   • MySQL ヘッダー   : default-libmysqlclient-dev
+#   • ffmpeg CLI       : ffmpeg
+#   • iconv 変換工具   : gettext-base（iconv が含まれる）
+# ───────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        default-libmysqlclient-dev \
+        ffmpeg \
+        gettext-base \
+    && rm -rf /var/lib/apt/lists/*
 
-# 4) pip をアップグレードし、Django と MySQL ドライバをインストール
-RUN pip install --upgrade pip \
- && pip install Django==5.2.1 mysqlclient
+# ───────────────────────────────
+#  Python 依存パッケージ
+#   requirements.txt は UTF-16 LE のため変換
+# ───────────────────────────────
+COPY requirements.txt /tmp/requirements.utf16.txt
+RUN iconv -f UTF-16LE -t UTF-8 /tmp/requirements.utf16.txt -o /tmp/requirements.txt \
+    && pip install --upgrade pip \
+    && pip install -r /tmp/requirements.txt \
+    && rm -rf /root/.cache/pip /tmp/requirements*.txt
 
-# 5) ローカルのコード（manage.py や settings.py、app/, myproject/ など）を
-#    コンテナ内 /app にコピー
+# ───────────────────────────────
+#  アプリケーションコード
+# ───────────────────────────────
 COPY . /app
 
-# 6) Django の開発サーバーが使うポートを開放
+# ───────────────────────────────
+#  ポート & 起動コマンド（開発用）
+# ───────────────────────────────
 EXPOSE 8000
-
-# 7) デフォルトの起動コマンドとして Django の開発サーバーを指定
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
