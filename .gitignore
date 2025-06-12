@@ -37,3 +37,4 @@ override.tf.json
 terraform.rc
 
 3rd_hackathon.pem
+.env
