@@ -85,18 +85,17 @@ docker build -t my-django-app .
 
 **2**
 ```bash
-docker run -d -p 8000:8000 -v <ホスト側の保存したいパス>:/app --name my_django_app my-django-app
+docker run -it -p 8000:8000 --name my_django_app my-django-app
 ```
-- 初回のみ必要
+- コマンドラインに入りたいときに使用する
 <br>
 
 **3**
 ```bash
-docker exec -it my_django_app bash
+python manage.py runserver 0.0.0.0:8000
 ```
-- これを実行するとLinuxのターミナルと同様の操作ができる
+- サーバ起動のコマンド
 <br>
-
 
 ---
 
@@ -105,5 +104,4 @@ docker exec -it my_django_app bash
 ```bash
 http://localhost:8000/
 ```
-- AWSではDjangoは動作しているはずなのにDjangoの画面が出ないので，EC2でも画面が出たほうがいいなら気合出します
-- ローカル環境でもAPIKeyがないと動作しません
+
