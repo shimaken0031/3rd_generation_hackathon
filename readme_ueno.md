@@ -85,14 +85,14 @@ docker build -t my-django-app .
 
 **2**
 ```bash
-docker run -d -p 8000:8000 -v <ホスト側の保存したいパス>:/app --name new_django_app new-django-app
+docker run -d -p 8000:8000 -v <ホスト側の保存したいパス>:/app --name my_django_app my-django-app
 ```
 - 初回のみ必要
 <br>
 
 **3**
 ```bash
-docker exec -it new_django_app bash
+docker exec -it my_django_app bash
 ```
 - これを実行するとLinuxのターミナルと同様の操作ができる
 <br>
