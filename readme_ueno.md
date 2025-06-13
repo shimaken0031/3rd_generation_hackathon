@@ -81,6 +81,7 @@ git clone https://github.com/Rikishi-com/3rd_generation_hackathon
 docker build -t my-django-app .
 ```
 - 初回はだいぶ時間かかります（上野は8分ぐらいかかりました）
+- `Dockerfile`があるディレクトリに移動する
 <br>
 
 **2**
@@ -97,6 +98,17 @@ python manage.py runserver 0.0.0.0:8000
 - サーバ起動のコマンド
 <br>
 
+**4. ローカルとコンテナ間のコピー**
+```bash
+docker cp <コンテナ名またはID>:<コンテナ内のパス> <ローカルのパス>
+```
+- コンテナ→ローカル
+
+```bash
+docker cp <ローカルのパス> <コンテナ名またはID>:<コンテナ内のパス>
+```
+- ローカル→コンテナ
+
 ---
 
 ### Django動作確認
@@ -104,4 +116,3 @@ python manage.py runserver 0.0.0.0:8000
 ```bash
 http://localhost:8000/
 ```
-
