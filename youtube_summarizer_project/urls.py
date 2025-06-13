@@ -16,7 +16,11 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from summarizer_app.views import YoutubePaidSummarizerAPI  # ← 追加！
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('summarizer_app.urls')),
+    path('summarize_paid_audio/', YoutubePaidSummarizerAPI.as_view(), name='summarize_paid_audio'),
+    path('', include('summarizer_app.urls')),
 ]
