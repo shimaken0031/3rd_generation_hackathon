@@ -4,12 +4,67 @@ MacとWindowsで違うかもしれないけれど，多分似通ってると思�
 
 ---
 
-### 1.GitHubから＊＊3rd_generation_hackathon**リポジトリをクローンする
-- **GitHub**からクローンしたファイルは同一ディレクトリに保存する(以下のような構成にして)
+### 1.ターミナル/コマンドプロンプト上で`git clone`する
+- `git clone`のコマンドは以下の通り
+
+```bash
+git clone https://github.com/Rikishi-com/3rd_generation_hackathon
+```
+- クローンしたいディレクトリにあらかじめ`cd`で飛んでおく
+
+####　**GitHub**からクローンしたファイルは同一ディレクトリに保存する(以下のような構成にして)
 ```tree
-.
+├── 3rd_hackathon.pem
+├── db.sqlite3
 ├── Dockerfile
-└── user_data.sh
+├── main.tf
+├── manage.py
+├── readme_ueno.md
+├── requirements.txt
+├── summarizer_app
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-312.pyc
+│   │   ├── admin.cpython-312.pyc
+│   │   ├── apps.cpython-312.pyc
+│   │   ├── models.cpython-312.pyc
+│   │   ├── urls.cpython-312.pyc
+│   │   └── views.cpython-312.pyc
+│   ├── admin.py
+│   ├── apps.py
+│   ├── migrations
+│   │   ├── __init__.py
+│   │   └── __pycache__
+│   │       └── __init__.cpython-312.pyc
+│   ├── models.py
+│   ├── tests.py
+│   ├── urls.py
+│   └── views.py
+├── temp
+│   └── tmpi92gownf
+│       ├── chunk_0000.mp3
+│       ├── chunk_0001.mp3
+│       ├── chunk_0002.mp3
+│       ├── chunk_0003.mp3
+│       ├── chunk_0004.mp3
+│       ├── chunk_0005.mp3
+│       ├── chunk_0006.mp3
+│       └── XljbxPWvBLA_downloaded_audio.mp3
+├── user_data.sh
+├── variables.tf
+├── vpc.tf
+└── youtube_summarizer_project
+    ├── __init__.py
+    ├── __pycache__
+    │   ├── __init__.cpython-312.pyc
+    │   ├── settings.cpython-312.pyc
+    │   ├── urls.cpython-312.pyc
+    │   └── wsgi.cpython-312.pyc
+    ├── asgi.py
+    ├── settings.py
+    ├── urls.py
+    └── wsgi.py
+
 ```
 
 ---
@@ -25,35 +80,23 @@ MacとWindowsで違うかもしれないけれど，多分似通ってると思�
 ```bash
 docker build -t my-django-app .
 ```
-- 初回はちょっと時間かかります
+- 初回はだいぶ時間かかります（上野は8分ぐらいかかりました）
 <br>
 
 **2**
 ```bash
-docker run --rm my-django-app python manage.py migrate
+docker run -d -p 8000:8000 -v <ホスト側の保存したいパス>:/app --name my_django_app my-django-app
 ```
 - 初回のみ必要
 <br>
 
 **3**
 ```bash
-docker run -d -p 8000:8000 --name django-container my-django-app
-```
-<br>
-
-**4**
-```bash
-docker exec -it django-container bash
+docker exec -it my_django_app bash
 ```
 - これを実行するとLinuxのターミナルと同様の操作ができる
 <br>
 
-**5**
-```bash
-ls
-```
-- **GitHub**の`3rd_generation_hackathon`リポジトリにあるファイル達があればOK
-- なかったら`user_data.sh`の内容を上から順にコピーして
 
 ---
 
@@ -63,3 +106,4 @@ ls
 http://localhost:8000/
 ```
 - AWSではDjangoは動作しているはずなのにDjangoの画面が出ないので，EC2でも画面が出たほうがいいなら気合出します
+- ローカル環境でもAPIKeyがないと動作しません
