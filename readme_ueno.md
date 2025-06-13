@@ -98,21 +98,42 @@ python manage.py runserver 0.0.0.0:8000
 - サーバ起動のコマンド
 <br>
 
-**4. ローカルとコンテナ間のコピー**
-```bash
-docker cp <コンテナ名またはID>:<コンテナ内のパス> <ローカルのパス>
-```
-- コンテナ→ローカル
-
+**4. `necessary.zip`内に含まれるファイルをコンテナ内にコピーする**
 ```bash
 docker cp <ローカルのパス> <コンテナ名またはID>:<コンテナ内のパス>
 ```
-- ローカル→コンテナ
+- ローカル→コンテナ(**今回はこの操作のみ**)
+- `test-753cb-c211d5dea50e.json`と`.env`の2つのファイルをコピーするため，それぞれのパスして実行する
+
+
+```bash
+docker cp <コンテナ名またはID>:<コンテナ内のパス> <ローカルのパス>
+```
+- コンテナ→ローカル(**今回は使わない**)
+
+
 
 ---
 
-### Django動作確認
-以下のコマンドをブラウザに入力してDjangoの画面が出たらOK
-```bash
-http://localhost:8000/
+### Postmanを使って実行する
+以下の写真のとおりに設定する
+<br>
+![Postman設定](postman_setting.jpg)
+
+---
+
+####　コピペ用
+
+```POST
+http://0.0.0.0:8000/summarize_paid_audio/
 ```
+- POSTの部分
+
+<br>
+
+```bash
+{
+    "link" :"https://youtu.be/4qS1Mlb2v1w?si=XOcpTX2quypa4T84Ω"
+}
+```
+- リンクは一例（あきとんとんの北海道の入試解説）
