@@ -93,7 +93,7 @@ resource "aws_instance" "app_server" {
   ami                    = var.ami
   instance_type          = var.instance_type
   key_name               = var.key_name
-  subnet_id              = var.public_subnet_id
+  subnet_id              = aws_subnet.public_subnet_1a.id
   vpc_security_group_ids = [aws_security_group.app_sg.id]
 
   user_data = file("user_data.sh")
@@ -101,16 +101,23 @@ resource "aws_instance" "app_server" {
   tags = {
     Name = "hackathon-app-server"
   }
+  depends_on = [aws_subnet.public_subnet_1a]
 }
 
 ##############################
 # RDS(MySQL) サブネットグループ
 ##############################
 resource "aws_db_subnet_group" "default" {
-  name       = "hackathon-db-subnet-group"
-  subnet_ids = var.db_subnet_ids
+  name       = "hackathon-db-subnet-group-v2"
+  subnet_ids = [
+    aws_subnet.private_subnet_1a.id,
+    aws_subnet.private_subnet_1c.id
+  ]
   tags = {
     Name = "hackathon-db-subnet-group"
+  }
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
