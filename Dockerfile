@@ -43,4 +43,4 @@ COPY . /app
 #  ポート & 起動コマンド（開発用）
 # ───────────────────────────────
 EXPOSE 8000
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["bash"]

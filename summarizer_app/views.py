@@ -214,7 +214,7 @@ class YoutubePaidSummarizerAPI(APIView):
                 print("エラー: OpenAI API クライアントがロードされていません。")
                 return Response({"error": "OpenAI API クライアントがロードされていません。設定を確認してください。"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             try:
-                prompt_summary = f"以下のYouTube動画の文字起こしデータとタイトルに基づいて、日本語で要点を簡潔にまとめてください。これを見たときにどのような分野でどのようなことをやっているのか読者がわかるようにまとめてください。数学や物理学の問題の時はその手順を細かく解説してください。\n\n動画タイトル: {title}\n\n文字起こしデータ:\n{transcript_text}\n\n要約:"
+                prompt_summary = f"あなたは優秀なテクニカルライターとして、これから渡す YouTube 動画のタイトルと文字起こしデータを読み取り、動画の要点を 3〜5 行で簡潔に記述し、読者が動画を見なくてもどの分野（例：プログラミング、AI、数学、物理、ガジェットレビュー など）で何をしている動画かが一目で分かるように示し、数学または物理の問題解説であれば解法プロセスを手順ごとに箇条書きで必要に応じて数式も使って詳しく説明し、それ以外の場合は技術的・専門的ポイントを中心に雑談や余談を省いてまとめてください。\n\n動画タイトル: {title}\n\n文字起こしデータ:\n{transcript_text}\n\n要約:"
                 print("   OpenAI API (要約) リクエスト送信中...")
                 response_summary_openai = openai_client.chat.completions.create(
                     model="gpt-3.5-turbo",
@@ -236,7 +236,7 @@ class YoutubePaidSummarizerAPI(APIView):
             print("ステップ5: OpenAI API で練習問題の生成を開始します。")
             practice_problems = "生成できませんでした。"
             if openai_client:
-                prompt_problems = f"以下のYouTube動画の文字起こしデータとタイトルを参考に、数学や物理の動画であれば、その内容に基づいた練習問題を日本語で5問作成してください。解答も一緒に提供してください。解答を作成する際に途中の導出方法も細かく記述してください。その他の分野で知識問題を作成するときは動画に出てきた分野の範囲において穴埋め問題を作成してください。その答えも一緒に提供してください。\n\n動画タイトル: {title}\n\n文字起こしデータ:\n{transcript_text}\n\n練習問題と解答:"
+                prompt_problems = f"あなたは優秀な作問者として、与えられた YouTube 動画のタイトルと文字起こしを読み取り、動画が数学・物理ならその内容を基に日本語で練習問題を５問作成し、数学・物理以外の場合は動画のテーマに沿った知識の穴埋め問題を同様に作成してください。まず 「問題文のみ」 のパートに５問を列挙し、続く 「問題と解答」 のパートでは、先程生成した5問と全く同じ各問題の直後に導出過程を詳述した解答を併記して提示してください。\n\n動画タイトル: {title}\n\n文字起こしデータ:\n{transcript_text}\n\n練習問題と解答:"
                 print("   OpenAI API (練習問題) リクエスト送信中...")
                 try:
                     response_problems_openai = openai_client.chat.completions.create(
