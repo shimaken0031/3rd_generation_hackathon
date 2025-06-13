@@ -25,11 +25,6 @@ variable "key_name" {
   type        = string
 }
 
-variable "vpc_id" {
-  description = "作成済み VPC の ID"
-  type        = string
-}
-
 variable "public_subnet_id" {
   description = "EC2 を立てるパブリックサブネットの ID"
   type        = string
