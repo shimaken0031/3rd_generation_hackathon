@@ -22,7 +22,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         default-libmysqlclient-dev \
         ffmpeg \
         gettext-base \
-        git \
     && rm -rf /var/lib/apt/lists/*
 
 # ───────────────────────────────
