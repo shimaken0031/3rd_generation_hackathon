@@ -318,10 +318,50 @@ class YoutubePaidSummarizerAPI(APIView):
             if temp_dir and os.path.exists(temp_dir):
                 print(f"一時ディレクトリを削除します: {temp_dir}")
                 shutil.rmtree(temp_dir)
+    
+    # --- グラフ必要性判断メソッド ---
+    def judge_necesally_graph(self,text):
+        """
+        文字起こしテキストにグラフが必要かどうかを判断する。
+        グラフが必要な場合はTrue、不要な場合はFalseを返す。
+        """
+
+        # ここでは、グラフが必要な条件を定義する。
+        keywords = ["グラフ", "図", "チャート", "プロット", "図表", "グラフ化", "可視化", "データの可視化", "グラフを描く", "グラフを作成"]
+        judge_from_txt = any(keyword in text for keyword in keywords)
+
+        if openai_client is None:
+            print("OpenAIクライアントが未初期化のため、グラフの必要性を判断できません。")
+            return judge_from_txt
+
+        try:
+            judge_from_openai_client = openai_client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "あなたは優秀なテクニカルライターとして、与えられた文字起こしテキストにグラフが必要かどうかを判断してください。"},
+                    {"role": "user", "content": f"以下の文字起こしテキストにグラフが必要ですか？必要な場合は「True」、不要な場合は「False」と答えてください。また確実に，「True」or「False」の２択で解答しなさい．そのほかの文字列は一切不要である．\n\n{text}"}
+                ],
+                max_tokens=10,
+                temperature=0.0,  # 確定的な応答を得るために独創性を0に設定
+            )
+            result_from_openai = judge_from_openai_client.choices[0].message.content.strip()
+            result_from_openai = result_from_openai == "True"
+        except Exception as e:
+            print(f"OpenAI APIでのグラフ必要性判断中にエラーが発生しました: {e}")
+            result_from_openai = False
+
+        if ((judge_from_txt) and (result_from_openai)) == "True":
+            print("グラフが必要と判断されました。")
+            return True
+        else:
+            print("グラフは不要と判断されました。")
+            return False
+
 
     # --- PDF変換メソッド ---
     # このメソッドは、文字起こしテキストをPDFファイルとして保存するために使用される。
     # ここでは、問題文のみ、解答のみ、または全文をPDFとして保存するためのメソッドを定義する。
+    # 既に出力先まで設定してあって出力されることは確認済みです．（上野より）
 
     def convert_to_pdf(self, text, filename):   #PDF変換メソッド
         """
