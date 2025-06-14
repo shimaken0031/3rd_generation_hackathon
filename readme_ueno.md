@@ -86,10 +86,16 @@ docker build -t my-django-app .
 
 **2**
 ```bash
-docker run -it -p 8000:8000 --name my_django_app my-django-app
+docker run -d -p 8000:8000 --name my_django_app my-django-app
 ```
-- コマンドラインに入りたいときに使用する
+- コンテナ起動するために使う
 <br>
+
+**4**
+```bash
+docker exec -it my_django_app bash
+```
+- 起動中のコンテナのコマンドラインに入る
 
 **3**
 ```bash
