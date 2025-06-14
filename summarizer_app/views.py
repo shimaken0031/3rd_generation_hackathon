@@ -214,7 +214,7 @@ class YoutubePaidSummarizerAPI(APIView):
                 print("エラー: OpenAI API クライアントがロードされていません。")
                 return Response({"error": "OpenAI API クライアントがロードされていません。設定を確認してください。"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             try:
-                prompt_summary = f"以下のYouTube動画の文字起こしデータとタイトルに基づいて、日本語で要点を簡潔にまとめてください。これを見たときにどのような分野でどのようなことをやっているのか読者がわかるようにまとめてください。数学や物理学の問題の時はその手順を細かく解説してください。\n\n動画タイトル: {title}\n\n文字起こしデータ:\n{transcript_text}\n\n要約:"
+                prompt_summary = f"あなたは教材を作るプロの講師です。これから渡すYouTube動画のタイトルと文字起こしを読み、要約してください。ただし、物理や数学の場合、以下のように問題の解法をステップごとに説明してください。【出力形式のルール】1. 問題の内容を簡潔に説明してください。2. 解くためのステップを順番に書いてください（STEP 1, STEP 2 のように）ex。3. 使用する公式や条件はすべて明記してください。4. 数式は LaTeX 形式で記述してください（例：\\( y = ax^2 + bx + c \\)）。5. 解答に至るまでの式変形、代入、計算手順を詳細に記述してください。6. 最後に答えも明記してください。\n\n動画タイトル: {title}\n\n文字起こしデータ:\n{transcript_text}\n\n要約:"
                 print("   OpenAI API (要約) リクエスト送信中...")
                 response_summary_openai = openai_client.chat.completions.create(
                     model="gpt-3.5-turbo",
