@@ -32,6 +32,7 @@ COPY requirements.txt /tmp/requirements.utf16.txt
 RUN iconv -f UTF-16LE -t UTF-8 /tmp/requirements.utf16.txt -o /tmp/requirements.txt \
     && pip install --upgrade pip \
     && pip install -r /tmp/requirements.txt \
+    && pip install reportlab \
     && rm -rf /root/.cache/pip /tmp/requirements*.txt
 
 # ───────────────────────────────
