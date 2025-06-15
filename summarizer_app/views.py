@@ -13,6 +13,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 
+
 # pydubは分割処理では不要になったため、コメントアウトまたは削除を検討
 # from pydub import AudioSegment 
 
@@ -289,6 +290,8 @@ class YoutubePaidSummarizerAPI(APIView):
                     practice_problems = response_problems_openai.choices[0].message.content.strip()
                     print("練習問題の生成完了。")
 
+                    self.create_graph(practice_problems, f"/app/medias/{video_id}_graph.mp4")
+
                     problem_pdf_path = os.path.join(settings.PDF_ROOT, f"{video_id}_problems.pdf")
                     answer_pdf_path = os.path.join(settings.PDF_ROOT, f"{video_id}_answers.pdf")
                     self.save_problem_only_pdf(practice_problems, problem_pdf_path)
@@ -426,6 +429,97 @@ class YoutubePaidSummarizerAPI(APIView):
             y -= 20
 
         c.save()
+
+
+    # --- グラフ生成メソッド ---
+    def create_graph(self, text, filename):
+        """
+        文字起こしテキストからグラフを生成し、PDFとして保存する。
+        グラフが必要な場合はTrueを返す。
+        """
+
+        question_prompt = (
+            f"以下のテキストからグラフを生成するための数式を抽出してください。"
+            f"条件として，数式はlatex形式で出力しなければならない．"
+            f"入力は5問の問題とその解答である．\n"
+            f"各問題に対応する数式は，複数あっても1行で出力しなければならない．"
+            f"グラフが必要な場合は数式を、不要な場合は「None」と解答すること。\n\n"
+            f"その際，異なる数式ごとに[,]で区切ること（数式が必要ない問題は空行にする）"  #半角カンマ
+            f"つまり出力は五行である必要がある．\n\n"
+            f"{text}\n\n"
+        )
+
+        if not self.judge_necesally_graph(text):
+            print("グラフは不要と判断されました。")
+            return False
+        
+        math_from_text_openai_client = openai_client.chat.completions.create(
+
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "あなたは優秀な数学者として、与えられた文字起こしテキストからグラフを生成するための数式を抽出してください。"},
+                {"role": "user", "content" : question_prompt}
+            ],
+            max_tokens=200,
+            temperature=0 # 確定的な応答を得るために独創性を0に設定
+        )
+        result = math_from_text_openai_client.choices[0].message.content.rstrip("\r\n")
+
+        separated_results = result.split("\n")  # 改行で分割
+
+        for idx, line in enumerate(separated_results):
+            latex_expr = line.strip()
+
+            if latex_expr == "None" or latex_expr == "":
+                print("グラフは不要と判断されました。")
+                continue
+
+            print(f"グラフを生成するための数式: {latex_expr}")
+
+            manim_code = f"""       # Manimコードを生成（描写→表示→消す）
+        from manim import *
+
+        class FormulaScene(Scene):
+            def construct(self):
+                tex = MathTex(r\"\"\"{latex_expr}\"\"\")
+                tex.scale(1.2)
+                self.play(Write(tex))
+                self.wait(1)
+                self.play(FadeOut(tex))
+        """
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                manim_file_path = os.path.join(tmpdir, "formula_scene.py")
+                with open(manim_file_path, "w", encoding="utf-8") as f:
+                    f.write(manim_code)
+
+                try:
+                    # filename: ex) "output.mp4" → "output_0.mp4", "output_1.mp4", ...
+                    output_dir = os.path.join("/app/medias")
+                    os.makedirs(output_dir, exist_ok=True)  # ディレクトリが無ければ作成
+
+                    # 出力ファイル名を構築（例: /app/medias/graph_0.mp4）
+                    output_filename = os.path.join(output_dir, f"graph_{idx}.mp4")
+
+                    subprocess.run([
+                        "manim",
+                        "-qk",
+                        "--format", "mp4",
+                        manim_file_path,
+                        "FormulaScene",
+                        "-o", os.path.basename(output_filename)
+                    ], cwd=tmpdir, check=True)
+
+                    output_path = os.path.join(tmpdir, "media", "videos", "formula_scene", "1080p60", os.path.basename(output_filename))
+                    if os.path.exists(output_path):
+                        os.rename(output_path, output_filename)
+                        print(f"グラフをmp4として保存しました: {output_filename}")
+                    else:
+                        print(f"出力ファイルが見つかりませんでした: {output_filename}")
+                except subprocess.CalledProcessError as e:
+                    print(f"Manim 実行エラー: {e}")
+
+        return True
 
     def _extract_video_id(self, youtube_link):
         """
