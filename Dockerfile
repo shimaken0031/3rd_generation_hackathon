@@ -24,6 +24,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         gettext-base \
     && rm -rf /var/lib/apt/lists/*
 
+RUN apt install -y texlive-full
+
 # ───────────────────────────────
 #  Python 依存パッケージ
 #   requirements.txt は UTF-16 LE のため変換
@@ -33,6 +35,7 @@ RUN iconv -f UTF-16LE -t UTF-8 /tmp/requirements.utf16.txt -o /tmp/requirements.
     && pip install --upgrade pip \
     && pip install -r /tmp/requirements.txt \
     && pip install reportlab \
+    && pip install manim \
     && rm -rf /root/.cache/pip /tmp/requirements*.txt
 
 # ───────────────────────────────
