@@ -86,7 +86,7 @@ docker build -t my-django-app .
 
 **2**
 ```bash
-docker run -d -p 8000:8000 --name my_django_app my-django-app
+docker run -dit -p 8000:8000 --name my_django_app my-django-app
 ```
 - コンテナ起動するために使う
 <br>
