@@ -24,7 +24,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango1.0-dev \
     python3-dev \
     default-libmysqlclient-dev \
-    texlive-full \
+    texlive-latex-base \
+    texlive-fonts-recommended \
+    texlive-latex-extra \
+    texlive-latex-recommended \
     ffmpeg \
     gettext-base \
     && rm -rf /var/lib/apt/lists/*
