@@ -31,7 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # ───────────────────────────────
 COPY requirements.txt /tmp/requirements.utf16.txt
 
-RUN iconv -f utf-16 -t utf-8 /tmp/requirements.utf16.txt -o /tmp/requirements.txt && \
+RUN iconv -f utf-16le -t utf-8 /tmp/requirements.utf16.txt -o /tmp/requirements.txt && \
     pip install --upgrade pip && \
     pip install -r /tmp/requirements.txt && \
     pip install reportlab && \
