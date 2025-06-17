@@ -251,13 +251,9 @@ class YoutubePaidSummarizerAPI(APIView):
                     f"例えば、歴史や社会に関する内容であれば、用語や人名、出来事などを空欄にした文を提示し、それに対応する正答を用意してください。\n"
                     f"まず 「問題文のみ」 のパートに５問を列挙し、続く 「問題と解答」 のパートでは、"
                     f"先程生成した5問と全く同じ各問題の直後に導出過程を詳述した解答を併記して提示してください。\n\n"
+                    f"数式が必要な際は，[+,ー,×，÷,=,≠,≡,∝,∫,∑,√]などの記号を使用してください。\n\n"
                     f"回答は以下の形式で出力してください。\n\n"
-                    f"(物理・数学の場合かつ問題文のみの場合):\n"
-                    f"問題1:[問題文を記載]\n"
-                    f"問題2:[問題文を記載]\n"
-                    f"問題3:[問題文を記載]\n"
-                    f"問題4:[問題文を記載]\n"
-                    f"問題5:[問題文を記載]\n\n"
+                    f"生成した数式の前後に，それぞれ改行['\n']を入れてください。\n\n"
                     f"(物理・数学の場合かつ問題と解答の場合):\n"
                     f"問題1:[問題文を記載]\n"
                     f"解答1:[問題の解答と導出過程を詳述]\n"
@@ -405,7 +401,7 @@ class YoutubePaidSummarizerAPI(APIView):
         answer_started = False
         answer_lines = []
         for line in full_text.split('\n'):
-            if line.strip().startswith("解答"):
+            if line.strip().startswith("問題"):
                 answer_started = True
             if answer_started:
                 answer_lines.append(line)
