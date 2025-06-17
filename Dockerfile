@@ -19,6 +19,9 @@ WORKDIR /app
 # ───────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
+        pkg-config \
+        libcairo2-dev \
+        python3-dev \
         default-libmysqlclient-dev \
         texlive-full \
         ffmpeg \
