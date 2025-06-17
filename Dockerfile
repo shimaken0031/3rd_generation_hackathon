@@ -18,14 +18,15 @@ WORKDIR /app
 #   • iconv 変換工具   : gettext-base（iconv が含まれる）
 # ───────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
-        pkg-config \
-        libcairo2-dev \
-        python3-dev \
-        default-libmysqlclient-dev \
-        texlive-full \
-        ffmpeg \
-        gettext-base \
+    build-essential \
+    pkg-config \
+    libcairo2-dev \
+    libpango1.0-dev \
+    python3-dev \
+    default-libmysqlclient-dev \
+    texlive-full \
+    ffmpeg \
+    gettext-base \
     && rm -rf /var/lib/apt/lists/*
 
 # ───────────────────────────────
