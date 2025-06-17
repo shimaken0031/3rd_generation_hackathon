@@ -30,12 +30,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 #   requirements.txt は UTF-16 LE のため変換
 # ───────────────────────────────
 COPY requirements.txt /tmp/requirements.utf16.txt
-RUN iconv -f UTF-16LE -t UTF-8 /tmp/requirements.utf16.txt -o /tmp/requirements.txt \
-    && pip install --upgrade pip \
-    && pip install -r /tmp/requirements.txt \
-    && pip install reportlab \
-    && pip install manim \
-    && rm -rf /root/.cache/pip /tmp/requirements*.txt
+
+RUN iconv -f utf-16 -t utf-8 /tmp/requirements.utf16.txt -o /tmp/requirements.txt && \
+    pip install --upgrade pip && \
+    pip install -r /tmp/requirements.txt && \
+    pip install reportlab && \
+    pip install manim && \
+    rm -rf /root/.cache/pip /tmp/requirements*.txt
 
 # ───────────────────────────────
 #  アプリケーションコード
