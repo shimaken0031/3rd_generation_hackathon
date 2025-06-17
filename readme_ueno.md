@@ -107,7 +107,7 @@ python manage.py runserver 0.0.0.0:8000
 - サーバ起動のコマンド
 <br>
 
-**4. `necessary.zip`内に含まれるファイルをコンテナ内にコピーする**
+**4. `necessary.zip`内のファイルとLINEで送信したフォントファイルをコンテナ内にコピーする**
 ```bash
 docker cp <ローカルのパス> <コンテナ名またはID>:<コンテナ内のパス>
 ```
