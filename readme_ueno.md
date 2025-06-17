@@ -80,8 +80,9 @@ git clone https://github.com/Rikishi-com/3rd_generation_hackathon
 ```bash
 docker build -t my-django-app .
 ```
-- 初回はだいぶ時間かかります（上野は8分ぐらいかかりました）
-- `Dockerfile`があるディレクトリに移動する
+- 初回はだいぶ時間かかります（キャッシュが残ってない場合，エラーなんじゃねって思うぐらい時間かかる場合があります．エラーっていう文字が出ない限り放置してください）
+- `Dockerfile`があるディレクトリに移動してこのコマンドを実行する
+- `my-django-app`は任意の名前でOK
 <br>
 
 **2**
@@ -89,6 +90,7 @@ docker build -t my-django-app .
 docker run -dit -p 8000:8000 --name my_django_app my-django-app
 ```
 - コンテナ起動するために使う
+- `my_django_app`は任意でOK，`my-django-app`は上で付けた名前と合わせて
 <br>
 
 **4**
@@ -96,6 +98,7 @@ docker run -dit -p 8000:8000 --name my_django_app my-django-app
 docker exec -it my_django_app bash
 ```
 - 起動中のコンテナのコマンドラインに入る
+- `my_dango_app`は上で付けた名前
 
 **3**
 ```bash
@@ -109,14 +112,56 @@ python manage.py runserver 0.0.0.0:8000
 docker cp <ローカルのパス> <コンテナ名またはID>:<コンテナ内のパス>
 ```
 - ローカル→コンテナ(**今回はこの操作のみ**)
-- `test-753cb-c211d5dea50e.json`と`.env`の2つのファイルをコピーするため，それぞれのパスして実行する
+- `test-753cb-c211d5dea50e.json`と`.env`，`ipaexm.ttf`の3つのファイルをコピーするため，それぞれのパスして実行する
+- `test-753cb-c211d5dea50e.json`と`.env`は/appでOK
+- `ipaexm.ttf`は/app/pdfs/fonts/にいれて
+- ディレクトリがない場合は次のコマンドで作成して
 
+### ディレクトリ作成方法
+前提としてDockerコンテナ内で打つコマンドです
+```bash
+mkdir pdfs
+cd pdfs
+mkdir fonts
+```
+- これを実行したら再度上のコマンドで，パスを指定する
+
+---
 
 ```bash
 docker cp <コンテナ名またはID>:<コンテナ内のパス> <ローカルのパス>
 ```
 - コンテナ→ローカル(**今回は使わない**)
 
+---
+
+### コンテナ名を忘れたとき
+以下のコマンドを使って確認して
+```bash
+docker container ls
+```
+- `NAME`ってところにコマンド名が書いてあります．
+- これで出なかったときはコンテナが動いていない証拠
+
+### コンテナが動いていないとき
+以下のコマンドでコンテナの状態を確認する
+```bash
+docker container ls -a
+```
+- Exitって書いてあったら動いてない
+- このコマンドでもなかったらコンテナが作成できていない
+
+### 作成済みで動いていないコンテナの動かし方
+以下のコマンドでコンテナを実行させる
+```bash
+docker start <コンテナ名>
+```
+
+### ポートが使われていますと出たときの対処法
+一旦コンテナを再起動させる．こうするとだいたい治ります
+```bash
+docker restart <コンテナ名>
+```
 
 
 ---
