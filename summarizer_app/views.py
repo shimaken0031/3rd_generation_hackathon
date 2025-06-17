@@ -220,7 +220,7 @@ class YoutubePaidSummarizerAPI(APIView):
                 print("エラー: OpenAI API クライアントがロードされていません。")
                 return Response({"error": "OpenAI API クライアントがロードされていません。設定を確認してください。"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             try:
-                prompt_summary = f"あなたは優秀なテクニカルライターとして、これから渡す YouTube 動画のタイトルと文字起こしデータを読み取り、動画の要点を 3〜5 行で簡潔に記述し、読者が動画を見なくてもどの分野（例：プログラミング、AI、数学、物理、ガジェットレビュー など）で何をしている動画かが一目で分かるように示し、数学または物理の問題解説であれば解法プロセスを手順ごとに箇条書きで必要に応じて数式も使って詳しく説明し、それ以外の場合は技術的・専門的ポイントを中心に雑談や余談を省いてまとめてください。\n\n動画タイトル: {title}\n\n文字起こしデータ:\n{transcript_text}\n\n要約:"
+                prompt_summary = f"あなたは教材を作るプロの講師です。これから渡すYouTube動画のタイトルと文字起こしを読み、要約してください。ただし、物理や数学の場合、以下のように問題の解法をステップごとに説明してください。【出力形式のルール】1. 問題の内容を簡潔に説明してください。2. 解くためのステップを順番に書いてください（STEP 1, STEP 2 のように）ex。3. 使用する公式や条件はすべて明記してください。4. 数式は LaTeX 形式で記述してください（例：\\( y = ax^2 + bx + c \\)）。5.数式が出てくる場合は直前と直後に改行を行ってください。6. 解答に至るまでの式変形、代入、計算手順を詳細に記述してください。7. 最後に答えも明記してください。\n\n動画タイトル: {title}\n\n文字起こしデータ:\n{transcript_text}\n\n要約:"
                 print("   OpenAI API (要約) リクエスト送信中...")
                 response_summary_openai = openai_client.chat.completions.create(
                     model="gpt-3.5-turbo",
