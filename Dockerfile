@@ -20,11 +20,10 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         default-libmysqlclient-dev \
+        texlive-full \
         ffmpeg \
         gettext-base \
     && rm -rf /var/lib/apt/lists/*
-
-RUN apt install -y texlive-full
 
 # ───────────────────────────────
 #  Python 依存パッケージ
