@@ -12,6 +12,7 @@ resource "aws_vpc" "vpc" {
 
   }
 }
+
 # サブネット
 resource "aws_subnet" "public_subnet_1a" {
   vpc_id                  = aws_vpc.vpc.id
@@ -24,6 +25,9 @@ resource "aws_subnet" "public_subnet_1a" {
     Project = var.project
     Env     = var.environment
     Type    = "public"
+  }
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
@@ -39,6 +43,9 @@ resource "aws_subnet" "public_subnet_1c" {
     Env     = var.environment
     Type    = "public"
   }
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_subnet" "private_subnet_1a" {
@@ -53,6 +60,9 @@ resource "aws_subnet" "private_subnet_1a" {
     Env     = var.environment
     Type    = "private"
   }
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_subnet" "private_subnet_1c" {
@@ -66,6 +76,9 @@ resource "aws_subnet" "private_subnet_1c" {
     Project = var.project
     Env     = var.environment
     Type    = "private"
+  }
+  lifecycle {
+    create_before_destroy = true
   }
 }
 

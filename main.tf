@@ -50,21 +50,12 @@ resource "aws_security_group" "app_sg" {
   }
 
   # 8000 ポートを開放
-    ingress {
-        from_port   = 8000
-        to_port     = 8000
-        protocol    = "tcp"
-        cidr_blocks = ["0.0.0.0/0"]
+  ingress {
+    from_port   = 8000
+    to_port     = 8000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
-
-  #  8001ポートを開放
-    ingress {
-        from_port   = 8001
-        to_port     = 8001
-        protocol    = "tcp"
-        cidr_blocks = ["0.0.0.0/0"]
-  }
-
   tags = {
     Name = "hackathon-app-sg"
   }
@@ -110,20 +101,23 @@ resource "aws_instance" "app_server" {
   tags = {
     Name = "hackathon-app-server"
   }
+  depends_on = [aws_subnet.public_subnet_1a]
 }
 
 ##############################
 # RDS(MySQL) サブネットグループ
 ##############################
 resource "aws_db_subnet_group" "default" {
-  name = "hackathon-db-subnet-group"
+  name       = "hackathon-db-subnet-group-v2"
   subnet_ids = [
     aws_subnet.private_subnet_1a.id,
-    aws_subnet.private_subnet_1c.id,
+    aws_subnet.private_subnet_1c.id
   ]
-
   tags = {
     Name = "hackathon-db-subnet-group"
+  }
+  lifecycle {
+    create_before_destroy = true
   }
 }
 

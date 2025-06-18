@@ -14,7 +14,6 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -30,7 +29,7 @@ SECRET_KEY = 'django-insecure-e#y)re32j!i$x=x+(2q#j#@2-u*s*jl^5p1gebzu^)b$*(*6z=
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['0.0.0.0', 'localhost', '127.0.1','57.180.117.238']
 
 
 # Application definition
@@ -144,3 +143,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'temp')
 os.makedirs(MEDIA_ROOT, exist_ok=True) # ディレクトリが存在しない場合は作成
 
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', 'YOUR_OPENAI_API_KEY_HERE') 
+
+# PDFの保存先ディレクトリ
+PDF_ROOT = os.path.join(BASE_DIR, 'pdfs')
+os.makedirs(PDF_ROOT, exist_ok=True) # ディレクトリが存在しない場合は作成

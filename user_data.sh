@@ -11,7 +11,7 @@ sudo dnf install -y wget curl vim
 # 2. Docker のインストール（Amazon Linux 2023 の場合）
 #-----------------------------------
 # Amazon Linux 2023 では "yum install docker" が有効
-sudo yum install -y docker
+sudo dnf install -y docker
 
 # Docker サービスを有効化＆起動
 sudo systemctl enable docker

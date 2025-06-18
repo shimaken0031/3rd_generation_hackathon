@@ -17,16 +17,12 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 
-
-
 # pydubは分割処理では不要になったため、コメントアウトまたは削除を検討
 # from pydub import AudioSegment 
 
 import openai
 from openai import OpenAI
-
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
 from googleapiclient.discovery import build
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -226,6 +222,7 @@ class YoutubePaidSummarizerAPI(APIView):
                 return Response({"error": "OpenAI API クライアントがロードされていません。設定を確認してください。"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             try:
                 prompt_summary = f"あなたは教材を作るプロの講師です。これから渡すYouTube動画のタイトルと文字起こしを読み、要約してください。ただし、物理や数学の場合、以下のように問題の解法をステップごとに説明してください。【出力形式のルール】1. 問題の内容を簡潔に説明してください。2. 解くためのステップを順番に書いてください（STEP 1, STEP 2 のように）ex。3. 使用する公式や条件はすべて明記してください。4. 数式は LaTeX 形式で記述してください（例：\\( y = ax^2 + bx + c \\)）。5.数式が出てくる場合は直前と直後に改行['\\']を行ってください。6. 解答に至るまでの式変形、代入、計算手順を詳細に記述してください。7. 最後に答えも明記してください。\n\n動画タイトル: {title}\n\n文字起こしデータ:\n{transcript_text}\n\n要約:"
+
                 print("   OpenAI API (要約) リクエスト送信中...")
                 response_summary_openai = openai_client.chat.completions.create(
                     model="gpt-3.5-turbo",
@@ -292,8 +289,8 @@ class YoutubePaidSummarizerAPI(APIView):
                     print("練習問題の生成完了。")
 
                     self.create_graph(practice_problems, f"/app/medias/{video_id}_graph.mp4")
-
                     
+
                 except Exception as problem_e:
                     print(f"ステップ5エラー: 練習問題の生成中にエラーが発生しました: {problem_e}")
                     print(f"トレースバック:\n{traceback.format_exc()}")
@@ -303,6 +300,7 @@ class YoutubePaidSummarizerAPI(APIView):
                 # 6. Return the response with title, description, transcript, summary, and practice problems.
             
             combined_output = f"{summary}\n\n{practice_problems}"
+
 
             return Response({
                 "title": title,
@@ -356,6 +354,7 @@ class YoutubePaidSummarizerAPI(APIView):
         else:
             print("グラフは不要と判断されました。")
             return False
+
 
     # --- グラフ生成メソッド ---
     def create_graph(self, text, filename):

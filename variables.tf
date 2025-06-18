@@ -25,21 +25,6 @@ variable "key_name" {
   type        = string
 }
 
-variable "vpc_id" {
-  description = "作成済み VPC の ID"
-  type        = string
-}
-
-variable "public_subnet_id" {
-  description = "EC2 を立てるパブリックサブネットの ID"
-  type        = string
-}
-
-variable "db_subnet_ids" {
-  description = "RDS 用 DB サブネットグループに用いるサブネット ID のリスト"
-  type        = list(string)
-}
-
 variable "db_name" {
   description = "RDS(MySQL) のデータベース名"
   type        = string
