@@ -11,17 +11,18 @@ from reportlab.lib.pagesizes import A4  # A4サイズのページを使用(pip n
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-
-
+import traceback
+from django.conf import settings
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.units import mm
 
 # pydubは分割処理では不要になったため、コメントアウトまたは削除を検討
 # from pydub import AudioSegment 
 
 import openai
 from openai import OpenAI
-
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
 from googleapiclient.discovery import build
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -220,7 +221,8 @@ class YoutubePaidSummarizerAPI(APIView):
                 print("エラー: OpenAI API クライアントがロードされていません。")
                 return Response({"error": "OpenAI API クライアントがロードされていません。設定を確認してください。"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             try:
-                prompt_summary = f"あなたは教材を作るプロの講師です。これから渡すYouTube動画のタイトルと文字起こしを読み、要約してください。ただし、物理や数学の場合、以下のように問題の解法をステップごとに説明してください。【出力形式のルール】1. 問題の内容を簡潔に説明してください。2. 解くためのステップを順番に書いてください（STEP 1, STEP 2 のように）ex。3. 使用する公式や条件はすべて明記してください。4. 数式は LaTeX 形式で記述してください（例：\\( y = ax^2 + bx + c \\)）。5.数式が出てくる場合は直前と直後に改行を行ってください。6. 解答に至るまでの式変形、代入、計算手順を詳細に記述してください。7. 最後に答えも明記してください。\n\n動画タイトル: {title}\n\n文字起こしデータ:\n{transcript_text}\n\n要約:"
+                prompt_summary = f"あなたは教材を作るプロの講師です。これから渡すYouTube動画のタイトルと文字起こしを読み、要約してください。ただし、物理や数学の場合、以下のように問題の解法をステップごとに説明してください。【出力形式のルール】1. 問題の内容を簡潔に説明してください。2. 解くためのステップを順番に書いてください（STEP 1, STEP 2 のように）ex。3. 使用する公式や条件はすべて明記してください。4. 数式は LaTeX 形式で記述してください（例：\\( y = ax^2 + bx + c \\)）。5.数式が出てくる場合は直前と直後に改行['\\']を行ってください。6. 解答に至るまでの式変形、代入、計算手順を詳細に記述してください。7. 最後に答えも明記してください。\n\n動画タイトル: {title}\n\n文字起こしデータ:\n{transcript_text}\n\n要約:"
+
                 print("   OpenAI API (要約) リクエスト送信中...")
                 response_summary_openai = openai_client.chat.completions.create(
                     model="gpt-3.5-turbo",
@@ -246,30 +248,30 @@ class YoutubePaidSummarizerAPI(APIView):
                 prompt_problems = (
                     f"あなたは優秀な作問者として、与えられた YouTube 動画のタイトルと文字起こしを読み取り、"
                     f"動画が数学・物理に関する内容であれば、内容に基づいて日本語で練習問題を5問作成してください。"
-                    f"その際、通常の記述式問題（例：式を解く・定理を説明するなど）を用いてください。\n"
+                    f"その際、通常の記述式問題（例：式を解く・定理を説明するなど）を用いてください。\\"
                     f"一方、動画が数学・物理以外の内容であれば、その分野に関連した**知識の穴埋め問題**を5問作成してください。"
-                    f"例えば、歴史や社会に関する内容であれば、用語や人名、出来事などを空欄にした文を提示し、それに対応する正答を用意してください。\n"
-                    f"まず 「問題文のみ」 のパートに５問を列挙し、続く 「問題と解答」 のパートでは、"
-                    f"先程生成した5問と全く同じ各問題の直後に導出過程を詳述した解答を併記して提示してください。\n\n"
-                    f"数式が必要な際は，[+,ー,×，÷,=,≠,≡,∝,∫,∑,√]などの記号を使用してください。\n\n"
-                    f"回答は以下の形式で出力してください。\n\n"
-                    f"生成した数式の前後に，それぞれ改行['\n']を入れてください。\n\n"
-                    f"(物理・数学の場合かつ問題と解答の場合):\n"
-                    f"問題1:[問題文を記載]\n"
-                    f"解答1:[問題の解答と導出過程を詳述]\n"
-                    f"問題2:[問題文を記載]\n"
-                    f"解答2:[問題の解答と導出過程を詳述]\n"
-                    f"問題3:[問題文を記載]\n"
-                    f"解答3:[問題の解答と導出過程を詳述]\n"
-                    f"問題4:[問題文を記載]\n"
-                    f"解答4:[問題の解答と導出過程を詳述]\n"
-                    f"問題5:[問題文を記載]\n"
-                    f"解答5:[問題の解答と導出過程を詳述]\n\n"
-                    f"(物理・数学以外の場合かつ問題文のみの場合):\n"
-                    f"問題:[穴埋め問題文を記載]\n\n"
-                    f"解答:[穴埋めされていない全文を記載(穴埋めになっていた箇所には，同様の位置に括弧を付けて ([穴埋め箇所の解答を記載])) ]\n"
-                    f"動画タイトル: {title}\n\n"
-                    f"文字起こしデータ:\n{transcript_text}\n\n"
+                    f"例えば、歴史や社会に関する内容であれば、用語や人名、出来事などを空欄にした文を提示し、それに対応する正答を用意してください。\\"
+                    f"まず 「問題文のみ」 のパートに5問を列挙し、続く 「問題と解答」 のパートでは、"
+                    f"先程生成した5問と全く同じ各問題の直後に導出過程を詳述した解答を併記して提示してください。\\\\"
+                    f"数式は LaTeX 形式で記述してください（例：\\( y = ax^2 + bx + c \\)）。\\\\"
+                    f"回答は以下の形式で出力してください。\\\\"
+                    f"生成した数式の前後に，必ずそれぞれ改行['\\']を入れてください。\\\\"
+                    f"(物理・数学の場合かつ問題と解答の場合):\\"
+                    f"問題1:[問題文を記載]\\"
+                    f"問題2:[問題文を記載]\\"
+                    f"問題3:[問題文を記載]\\"
+                    f"問題4:[問題文を記載]\\"
+                    f"問題5:[問題文を記載]\\"
+                    f"解答1:[問題の解答と導出過程を詳述]\\"
+                    f"解答2:[問題の解答と導出過程を詳述]\\"
+                    f"解答3:[問題の解答と導出過程を詳述]\\"
+                    f"解答4:[問題の解答と導出過程を詳述]\\"
+                    f"解答5:[問題の解答と導出過程を詳述]\\"
+                    f"(物理・数学以外の場合かつ問題文のみの場合):\\"
+                    f"問題:[穴埋め問題文を記載]\\\\"
+                    f"解答:[穴埋めされていない全文を記載(穴埋めになっていた箇所には，同様の位置に括弧を付けて ([穴埋め箇所の解答を記載])) ]\\"
+                    f"動画タイトル: {title}\\\\"
+                    f"文字起こしデータ:\n{transcript_text}\\\\"
                     f"練習問題と解答:"
                 )                
                 print("   OpenAI API (練習問題) リクエスト送信中...")
@@ -287,11 +289,8 @@ class YoutubePaidSummarizerAPI(APIView):
                     print("練習問題の生成完了。")
 
                     self.create_graph(practice_problems, f"/app/medias/{video_id}_graph.mp4")
+                    
 
-                    problem_pdf_path = os.path.join(settings.PDF_ROOT, f"{video_id}_problems.pdf")
-                    answer_pdf_path = os.path.join(settings.PDF_ROOT, f"{video_id}_answers.pdf")
-                    self.save_problem_only_pdf(practice_problems, problem_pdf_path)
-                    self.save_answer_only_pdf(practice_problems, answer_pdf_path)
                 except Exception as problem_e:
                     print(f"ステップ5エラー: 練習問題の生成中にエラーが発生しました: {problem_e}")
                     print(f"トレースバック:\n{traceback.format_exc()}")
@@ -299,13 +298,13 @@ class YoutubePaidSummarizerAPI(APIView):
             else:
                 print("警告: OpenAI API クライアントが利用できないため、練習問題は生成されません。")
                 # 6. Return the response with title, description, transcript, summary, and practice problems.
+            
+            combined_output = f"{summary}\n\n{practice_problems}"
+
 
             return Response({
                 "title": title,
-                "description": description,
-                "transcript": transcript_text,
-                "summary": summary,
-                "practice_problems": practice_problems
+                "combined_output": combined_output,
             }, status=status.HTTP_200_OK)
 
         except Exception as e:
@@ -355,76 +354,6 @@ class YoutubePaidSummarizerAPI(APIView):
         else:
             print("グラフは不要と判断されました。")
             return False
-
-
-    # --- PDF変換メソッド ---
-    # このメソッドは、文字起こしテキストをPDFファイルとして保存するために使用される。
-    # ここでは、問題文のみ、解答のみ、または全文をPDFとして保存するためのメソッドを定義する。
-    # 既に出力先まで設定してあって出力されることは確認済みです．（上野より）
-
-    def convert_to_pdf(self, text, filename):   #PDF変換メソッド
-        """
-        与えられたテキストをPDFファイルとして保存する。
-        :param text: PDFに書き込む文字列
-        :param filename: 出力先ファイルパス（フルパスで指定）
-        """
-
-        try:
-            c = canvas.Canvas(filename, pagesize=A4)
-            width, height = A4
-            margin = 50
-            y = height - margin
-            line_height = 14
-
-            for line in text.split('\n'):   # テキストを行ごとに分割
-                if y < margin:
-                    c.showPage()    # ページの下端に到達したら新しいページを作成
-                    y = height - margin
-                c.drawString(margin, y, line)   # 行をPDFに書き込む
-                y -= line_height    # 次の行へ進む
-
-            c.save()
-            print(f"PDFとして保存しました: {filename}") # PDF保存完了メッセージ(フルパス含)
-            
-        except Exception as e:
-            print(f"PDF生成中にエラーが発生しました: {e}")
-
-
-    def save_problem_only_pdf(self, full_text, filename):
-        problem_lines = []
-        for line in full_text.split('\n'):
-            if line.startswith("問題") and "解答" not in line:
-                problem_lines.append(line)
-        self.convert_to_pdf("\n".join(problem_lines), filename)
-
-    def save_answer_only_pdf(self, full_text, filename):
-        answer_started = False
-        answer_lines = []
-        for line in full_text.split('\n'):
-            if line.strip().startswith("問題"):
-                answer_started = True
-            if answer_started:
-                answer_lines.append(line)
-        self.convert_to_pdf("\n".join(answer_lines), filename)
-
-    font_path = os.path.join(settings.BASE_DIR, "pdfs", "fonts", "ipaexm.ttf")
-    pdfmetrics.registerFont(TTFont("IPAexGothic", font_path))
-
-    def convert_to_pdf(self, text, filename):
-        c = canvas.Canvas(filename, pagesize=A4)
-        width, height = A4
-        c.setFont("IPAexGothic", 12)  # 日本語対応フォント
-
-        y = height - 50  # 上から描画開始
-        for line in text.split("\n"):
-            if y < 50:
-                c.showPage()
-                c.setFont("IPAexGothic", 12)
-                y = height - 50
-            c.drawString(50, y, line)
-            y -= 20
-
-        c.save()
 
 
     # --- グラフ生成メソッド ---
