@@ -1,26 +1,8 @@
-"""
-URL configuration for youtube_summarizer_project project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 from django.contrib import admin
 from django.urls import path, include
-from summarizer_app.views import YoutubePaidSummarizerAPI  # ← 追加！
-
+from django.conf import settings # MEDIA_ROOT/MEDIA_URLのために追加
+from django.conf.urls.static import static # MEDIA_ROOT/MEDIA_URLのために追加
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('summarizer_app.urls')),
-    path('summarize_paid_audio/', YoutubePaidSummarizerAPI.as_view(), name='summarize_paid_audio'),
-    path('', include('summarizer_app.urls')),
 ]
