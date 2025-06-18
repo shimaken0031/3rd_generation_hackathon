@@ -7,6 +7,17 @@ import shutil
 import time
 import traceback
 import math
+from reportlab.lib.pagesizes import A4  # A4サイズのページを使用(pip not install reportlabが必要)
+from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+import traceback
+from django.conf import settings
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.units import mm
+
+
 
 # pydubは分割処理では不要になったため、コメントアウトまたは削除を検討
 # from pydub import AudioSegment 
@@ -214,7 +225,7 @@ class YoutubePaidSummarizerAPI(APIView):
                 print("エラー: OpenAI API クライアントがロードされていません。")
                 return Response({"error": "OpenAI API クライアントがロードされていません。設定を確認してください。"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             try:
-                prompt_summary = f"あなたは教材を作るプロの講師です。これから渡すYouTube動画のタイトルと文字起こしを読み、要約してください。ただし、物理や数学の場合、以下のように問題の解法をステップごとに説明してください。【出力形式のルール】1. 問題の内容を簡潔に説明してください。2. 解くためのステップを順番に書いてください（STEP 1, STEP 2 のように）ex。3. 使用する公式や条件はすべて明記してください。4. 数式は LaTeX 形式で記述してください（例：\\( y = ax^2 + bx + c \\)）。5. 解答に至るまでの式変形、代入、計算手順を詳細に記述してください。6. 最後に答えも明記してください。\n\n動画タイトル: {title}\n\n文字起こしデータ:\n{transcript_text}\n\n要約:"
+                prompt_summary = f"あなたは教材を作るプロの講師です。これから渡すYouTube動画のタイトルと文字起こしを読み、要約してください。ただし、物理や数学の場合、以下のように問題の解法をステップごとに説明してください。【出力形式のルール】1. 問題の内容を簡潔に説明してください。2. 解くためのステップを順番に書いてください（STEP 1, STEP 2 のように）ex。3. 使用する公式や条件はすべて明記してください。4. 数式は LaTeX 形式で記述してください（例：\\( y = ax^2 + bx + c \\)）。5.数式が出てくる場合は直前と直後に改行['\\']を行ってください。6. 解答に至るまでの式変形、代入、計算手順を詳細に記述してください。7. 最後に答えも明記してください。\n\n動画タイトル: {title}\n\n文字起こしデータ:\n{transcript_text}\n\n要約:"
                 print("   OpenAI API (要約) リクエスト送信中...")
                 response_summary_openai = openai_client.chat.completions.create(
                     model="gpt-3.5-turbo",
@@ -235,34 +246,67 @@ class YoutubePaidSummarizerAPI(APIView):
             # 5. Generate practice problems using OpenAI API.
             print("ステップ5: OpenAI API で練習問題の生成を開始します。")
             practice_problems = "生成できませんでした。"
-            if openai_client:
-                prompt_problems = f"以下のYouTube動画の文字起こしデータとタイトルを参考に、数学や物理の動画であれば、その内容に基づいた練習問題を日本語で5問作成してください。解答も一緒に提供してください。解答を作成する際に途中の導出方法も細かく記述してください。その他の分野で知識問題を作成するときは動画に出てきた分野の範囲において穴埋め問題を作成してください。その答えも一緒に提供してください。\n\n動画タイトル: {title}\n\n文字起こしデータ:\n{transcript_text}\n\n練習問題と解答:"
+            if openai_client: # OpenAIクライアントが利用可能(≠None)な場合のみ実行
+                    # 文字列の前のfはフォーマット文字列を示す．（文字列の中に変数を埋め込むことが可能）
+                prompt_problems = (
+                    f"あなたは優秀な作問者として、与えられた YouTube 動画のタイトルと文字起こしを読み取り、"
+                    f"動画が数学・物理に関する内容であれば、内容に基づいて日本語で練習問題を5問作成してください。"
+                    f"その際、通常の記述式問題（例：式を解く・定理を説明するなど）を用いてください。\\"
+                    f"一方、動画が数学・物理以外の内容であれば、その分野に関連した**知識の穴埋め問題**を5問作成してください。"
+                    f"例えば、歴史や社会に関する内容であれば、用語や人名、出来事などを空欄にした文を提示し、それに対応する正答を用意してください。\\"
+                    f"まず 「問題文のみ」 のパートに5問を列挙し、続く 「問題と解答」 のパートでは、"
+                    f"先程生成した5問と全く同じ各問題の直後に導出過程を詳述した解答を併記して提示してください。\\\\"
+                    f"数式は LaTeX 形式で記述してください（例：\\( y = ax^2 + bx + c \\)）。\\\\"
+                    f"回答は以下の形式で出力してください。\\\\"
+                    f"生成した数式の前後に，必ずそれぞれ改行['\\']を入れてください。\\\\"
+                    f"(物理・数学の場合かつ問題と解答の場合):\\"
+                    f"問題1:[問題文を記載]\\"
+                    f"問題2:[問題文を記載]\\"
+                    f"問題3:[問題文を記載]\\"
+                    f"問題4:[問題文を記載]\\"
+                    f"問題5:[問題文を記載]\\"
+                    f"解答1:[問題の解答と導出過程を詳述]\\"
+                    f"解答2:[問題の解答と導出過程を詳述]\\"
+                    f"解答3:[問題の解答と導出過程を詳述]\\"
+                    f"解答4:[問題の解答と導出過程を詳述]\\"
+                    f"解答5:[問題の解答と導出過程を詳述]\\"
+                    f"(物理・数学以外の場合かつ問題文のみの場合):\\"
+                    f"問題:[穴埋め問題文を記載]\\\\"
+                    f"解答:[穴埋めされていない全文を記載(穴埋めになっていた箇所には，同様の位置に括弧を付けて ([穴埋め箇所の解答を記載])) ]\\"
+                    f"動画タイトル: {title}\\\\"
+                    f"文字起こしデータ:\n{transcript_text}\\\\"
+                    f"練習問題と解答:"
+                )                
                 print("   OpenAI API (練習問題) リクエスト送信中...")
                 try:
                     response_problems_openai = openai_client.chat.completions.create(
                         model="gpt-4",
                         messages=[
-                            {"role": "system", "content": "あなたは動画内容から練習問題を作成するアシスタントです。"},
-                            {"role": "user", "content": prompt_problems}
+                            {"role": "system", "content": "あなたは動画内容から練習問題を作成するアシスタントです。"}, #role:systemはAIにどんな役割を与えるかを指定
+                            {"role": "user", "content": prompt_problems} #role:userはユーザからの入力を示す
                         ],
-                        max_tokens=1500,
-                        temperature=0.7,
+                        max_tokens=1500, # 出力される最大トークン数（日本語で約3000字）
+                        temperature=0.7, # 生成の多様性を制御するパラメータ（堅い：0.0〜1.0：創造的）
                     )
                     practice_problems = response_problems_openai.choices[0].message.content.strip()
                     print("練習問題の生成完了。")
+
+                    self.create_graph(practice_problems, f"/app/medias/{video_id}_graph.mp4")
+
+                    
                 except Exception as problem_e:
                     print(f"ステップ5エラー: 練習問題の生成中にエラーが発生しました: {problem_e}")
                     print(f"トレースバック:\n{traceback.format_exc()}")
                     practice_problems = f"練習問題の生成中にエラーが発生しました: {problem_e}"
             else:
                 print("警告: OpenAI API クライアントが利用できないため、練習問題は生成されません。")
+                # 6. Return the response with title, description, transcript, summary, and practice problems.
+            
+            combined_output = f"{summary}\n\n{practice_problems}"
 
             return Response({
                 "title": title,
-                "description": description,
-                "transcript": transcript_text,
-                "summary": summary,
-                "practice_problems": practice_problems
+                "combined_output": combined_output,
             }, status=status.HTTP_200_OK)
 
         except Exception as e:
@@ -274,6 +318,134 @@ class YoutubePaidSummarizerAPI(APIView):
             if temp_dir and os.path.exists(temp_dir):
                 print(f"一時ディレクトリを削除します: {temp_dir}")
                 shutil.rmtree(temp_dir)
+    
+    # --- グラフ必要性判断メソッド ---
+    def judge_necesally_graph(self,text):
+        """
+        文字起こしテキストにグラフが必要かどうかを判断する。
+        グラフが必要な場合はTrue、不要な場合はFalseを返す。
+        """
+
+        # ここでは、グラフが必要な条件を定義する。
+        keywords = ["グラフ", "図", "チャート", "プロット", "図表", "グラフ化", "可視化", "データの可視化", "グラフを描く", "グラフを作成"]
+        judge_from_txt = any(keyword in text for keyword in keywords)
+
+        if openai_client is None:
+            print("OpenAIクライアントが未初期化のため、グラフの必要性を判断できません。")
+            return judge_from_txt
+
+        try:
+            judge_from_openai_client = openai_client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "あなたは優秀なテクニカルライターとして、与えられた文字起こしテキストにグラフが必要かどうかを判断してください。"},
+                    {"role": "user", "content": f"以下の文字起こしテキストにグラフが必要ですか？必要な場合は「True」、不要な場合は「False」と答えてください。また確実に，「True」or「False」の２択で解答しなさい．そのほかの文字列は一切不要である．\n\n{text}"}
+                ],
+                max_tokens=10,
+                temperature=0.0,  # 確定的な応答を得るために独創性を0に設定
+            )
+            result_from_openai = judge_from_openai_client.choices[0].message.content.strip()
+            result_from_openai = result_from_openai == "True"
+        except Exception as e:
+            print(f"OpenAI APIでのグラフ必要性判断中にエラーが発生しました: {e}")
+            result_from_openai = False
+
+        if ((judge_from_txt) and (result_from_openai)) == "True":
+            print("グラフが必要と判断されました。")
+            return True
+        else:
+            print("グラフは不要と判断されました。")
+            return False
+
+    # --- グラフ生成メソッド ---
+    def create_graph(self, text, filename):
+        """
+        文字起こしテキストからグラフを生成し、PDFとして保存する。
+        グラフが必要な場合はTrueを返す。
+        """
+
+        question_prompt = (
+            f"以下のテキストからグラフを生成するための数式を抽出してください。"
+            f"条件として，数式はlatex形式で出力しなければならない．"
+            f"入力は5問の問題とその解答である．\n"
+            f"各問題に対応する数式は，複数あっても1行で出力しなければならない．"
+            f"グラフが必要な場合は数式を、不要な場合は「None」と解答すること。\n\n"
+            f"その際，異なる数式ごとに[,]で区切ること（数式が必要ない問題は空行にする）"  #半角カンマ
+            f"つまり出力は五行である必要がある．\n\n"
+            f"{text}\n\n"
+        )
+
+        if not self.judge_necesally_graph(text):
+            print("グラフは不要と判断されました。")
+            return False
+        
+        math_from_text_openai_client = openai_client.chat.completions.create(
+
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "あなたは優秀な数学者として、与えられた文字起こしテキストからグラフを生成するための数式を抽出してください。"},
+                {"role": "user", "content" : question_prompt}
+            ],
+            max_tokens=200,
+            temperature=0 # 確定的な応答を得るために独創性を0に設定
+        )
+        result = math_from_text_openai_client.choices[0].message.content.rstrip("\r\n")
+
+        separated_results = result.split("\n")  # 改行で分割
+
+        for idx, line in enumerate(separated_results):
+            latex_expr = line.strip()
+
+            if latex_expr == "None" or latex_expr == "":
+                print("グラフは不要と判断されました。")
+                continue
+
+            print(f"グラフを生成するための数式: {latex_expr}")
+
+            manim_code = f"""       # Manimコードを生成（描写→表示→消す）
+        from manim import *
+
+        class FormulaScene(Scene):
+            def construct(self):
+                tex = MathTex(r\"\"\"{latex_expr}\"\"\")
+                tex.scale(1.2)
+                self.play(Write(tex))
+                self.wait(1)
+                self.play(FadeOut(tex))
+        """
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                manim_file_path = os.path.join(tmpdir, "formula_scene.py")
+                with open(manim_file_path, "w", encoding="utf-8") as f:
+                    f.write(manim_code)
+
+                try:
+                    # filename: ex) "output.mp4" → "output_0.mp4", "output_1.mp4", ...
+                    output_dir = os.path.join("/app/medias")
+                    os.makedirs(output_dir, exist_ok=True)  # ディレクトリが無ければ作成
+
+                    # 出力ファイル名を構築（例: /app/medias/graph_0.mp4）
+                    output_filename = os.path.join(output_dir, f"graph_{idx}.mp4")
+
+                    subprocess.run([
+                        "manim",
+                        "-qk",
+                        "--format", "mp4",
+                        manim_file_path,
+                        "FormulaScene",
+                        "-o", os.path.basename(output_filename)
+                    ], cwd=tmpdir, check=True)
+
+                    output_path = os.path.join(tmpdir, "media", "videos", "formula_scene", "1080p60", os.path.basename(output_filename))
+                    if os.path.exists(output_path):
+                        os.rename(output_path, output_filename)
+                        print(f"グラフをmp4として保存しました: {output_filename}")
+                    else:
+                        print(f"出力ファイルが見つかりませんでした: {output_filename}")
+                except subprocess.CalledProcessError as e:
+                    print(f"Manim 実行エラー: {e}")
+
+        return True
 
     def _extract_video_id(self, youtube_link):
         """
