@@ -290,19 +290,41 @@ class YoutubePaidSummarizerAPI(APIView):
                     practice_problems = response_problems_openai.choices[0].message.content.strip()
                     print("練習問題の生成完了。")
 
-                    self.create_graph(practice_problems, f"/app/medias/{video_id}_graph.mp4")
+                    judge = self.judge_necessarily_graph(transcript_text)   # グラフが必要かどうかを判断
 
-                    problem_pdf_path = os.path.join(settings.PDF_ROOT, f"{video_id}_problems.pdf")
-                    answer_pdf_path = os.path.join(settings.PDF_ROOT, f"{video_id}_answers.pdf")
-                    self.save_problem_only_pdf(practice_problems, problem_pdf_path)
-                    self.save_answer_only_pdf(practice_problems, answer_pdf_path)
+                    if judge:
+                        print("グラフが必要と判断されました。数式を抽出します...")
+                        latex_equations = self.latex_from_text(practice_problems)  # 数式を抽出
+                        after_latex_equations = self.latex_to_python(latex_equations)  # x, y のみの数式を抽出
+                        if after_latex_equations:
+                            for i, equation in enumerate(after_latex_equations):
+                                print(f"抽出された数式: {equation}")
+                                create_graph_filename = f"{video_id}graph_{i+1}"
+                                success, graph_file_path = self.create_graph_from_latex(
+                                    latex_equation=equation,
+                                    filename=create_graph_filename,
+                                    quality='l',
+                                    k=9.8
+                                )
+                            
+                                if success:
+                                    print(f"グラフ動画の生成に成功しました: {graph_file_path}")
+                                    practice_problems += f"\n\nグラフ動画はこちら: {graph_file_path}"
+                                else:
+                                    print("グラフ動画の生成に失敗しました。")
+
+                        else:
+                            print("警告: 数式が抽出できませんでした。グラフ動画は生成されません。")
+                            practice_problems += "\n\nグラフ動画は生成されませんでした。数式が抽出できなかったためです。"
+
                 except Exception as problem_e:
                     print(f"ステップ5エラー: 練習問題の生成中にエラーが発生しました: {problem_e}")
                     print(f"トレースバック:\n{traceback.format_exc()}")
                     practice_problems = f"練習問題の生成中にエラーが発生しました: {problem_e}"
             else:
                 print("警告: OpenAI API クライアントが利用できないため、練習問題は生成されません。")
-                # 6. Return the response with title, description, transcript, summary, and practice problems.
+            # 6. Return the response with title, description, transcript, summary, and practice problems.
+            combined_output = f"{summary}\n\n{practice_problems}"
 
             return Response({
                 "title": title,
@@ -323,20 +345,23 @@ class YoutubePaidSummarizerAPI(APIView):
                 shutil.rmtree(temp_dir)
     
     # --- グラフ必要性判断メソッド ---
-    def judge_necesally_graph(self,text):
+    def judge_necessarily_graph(self, text):
         """
-        文字起こしテキストにグラフが必要かどうかを判断する。
+        文字起こしテキストにグラフが必要かどうかを効率的に判断する。
         グラフが必要な場合はTrue、不要な場合はFalseを返す。
         """
+        # 1. まずキーワードで高速チェック
+        keywords = ["グラフ","表","プロット", "図表", "グラフ化", "可視化", "データの可視化", "グラフを描く", "グラフを作成"]
+        if any(keyword in text for keyword in keywords):
+            print(f"キーワード '{next(keyword for keyword in keywords if keyword in text)}' が見つかったため、グラフが必要と判断しました。")
+            return True
 
-        # ここでは、グラフが必要な条件を定義する。
-        keywords = ["グラフ", "図", "チャート", "プロット", "図表", "グラフ化", "可視化", "データの可視化", "グラフを描く", "グラフを作成"]
-        judge_from_txt = any(keyword in text for keyword in keywords)
-
+        # 2. キーワードがない場合のみ、AIに問い合わせる
         if openai_client is None:
-            print("OpenAIクライアントが未初期化のため、グラフの必要性を判断できません。")
-            return judge_from_txt
+            print("キーワードが見つからず、OpenAIクライアントも未初期化です。グラフは不要と判断します。")
+            return False
 
+        print("キーワードが見つからなかったため、AIによる判断を開始します...")
         try:
             judge_from_openai_client = openai_client.chat.completions.create(
                 model="gpt-3.5-turbo",
@@ -344,198 +369,225 @@ class YoutubePaidSummarizerAPI(APIView):
                     {"role": "system", "content": "あなたは優秀なテクニカルライターとして、与えられた文字起こしテキストにグラフが必要かどうかを判断してください。"},
                     {"role": "user", "content": f"以下の文字起こしテキストにグラフが必要ですか？必要な場合は「True」、不要な場合は「False」と答えてください。また確実に，「True」or「False」の２択で解答しなさい．そのほかの文字列は一切不要である．\n\n{text}"}
                 ],
-                max_tokens=10,
-                temperature=0.0,  # 確定的な応答を得るために独創性を0に設定
+                max_tokens=10, # "True"か"False"だけなのでトークンは少量で良い
+                temperature=0.0,
             )
-            result_from_openai = judge_from_openai_client.choices[0].message.content.strip()
-            result_from_openai = result_from_openai == "True"
+            result_str = judge_from_openai_client.choices[0].message.content.strip()
+            
+            # "True"という単語が含まれているかで判断する、より堅牢な方法
+            if "True" in result_str:
+                print("AIがグラフを必要と判断しました。")
+                return True
+            else:
+                print("AIがグラフ不要と判断しました。")
+                return False
+
         except Exception as e:
             print(f"OpenAI APIでのグラフ必要性判断中にエラーが発生しました: {e}")
-            result_from_openai = False
-
-        if ((judge_from_txt) and (result_from_openai)) == "True":
-            print("グラフが必要と判断されました。")
-            return True
-        else:
-            print("グラフは不要と判断されました。")
+            # APIエラー時は安全策としてFalseを返す
             return False
-
-
-    # --- PDF変換メソッド ---
-    # このメソッドは、文字起こしテキストをPDFファイルとして保存するために使用される。
-    # ここでは、問題文のみ、解答のみ、または全文をPDFとして保存するためのメソッドを定義する。
-    # 既に出力先まで設定してあって出力されることは確認済みです．（上野より）
-
-    def convert_to_pdf(self, text, filename):   #PDF変換メソッド
+        
+    def latex_from_text(self, text: str) -> list[str]:
         """
-        与えられたテキストをPDFファイルとして保存する。
-        :param text: PDFに書き込む文字列
-        :param filename: 出力先ファイルパス（フルパスで指定）
+        メソッドの目的としては，グラフ動画生成メソッドに渡すためのLaTeX形式の数式を抽出する。
+        このメソッドは，judge_necessarily_graphメソッドでグラフが必要と判断された場合に、使用する
+        文字起こしテキストから数式を抽出し、LaTeX形式で返す。
+        グラフが必要な数式が複数あった場合は，リスト形式で返す。
         """
+        if openai_client is None:
+            print("OpenAIクライアントが未初期化のため、数式を抽出できません。")
+            return []
 
+        # GPT-4に数式抽出を依頼するためのプロンプト
+        extraction_prompt = f"""
+        あなたは優秀な数学者です。以下のテキストから、数式を抽出してください
+
+        条件:
+        1. 抽出した数式は、それぞれ別の行に出力してください。
+        2. 数式は必ずLaTeX形式で出力してください。（例: x = \frac{1}{2} y^2 + 3y）
+        3. 出力には数式以外一切必要ありません．説明文、挨拶、記号（箇条書きのハイフンなど）を一切含めないでください。
+        4. 数式が一つも見つからなかった場合は、必ず「None」という単語だけを返してください。
+
+        対象のテキスト:
+        ---
+        {text}
+        ---
+        """
+        print("AIによる数式の抽出を開始します...")
         try:
-            c = canvas.Canvas(filename, pagesize=A4)
-            width, height = A4
-            margin = 50
-            y = height - margin
-            line_height = 14
+            response = openai_client.chat.completions.create(
+                model="gpt-4", 
+                messages=[
+                    {"role": "system", "content": "あなたはテキストから数式を抽出する専門家です。"},
+                    {"role": "user", "content": extraction_prompt}
+                ],
+                max_tokens=500,
+                temperature=0.0,
+            )
+            result = response.choices[0].message.content.strip()
 
-            for line in text.split('\n'):   # テキストを行ごとに分割
-                if y < margin:
-                    c.showPage()    # ページの下端に到達したら新しいページを作成
-                    y = height - margin
-                c.drawString(margin, y, line)   # 行をPDFに書き込む
-                y -= line_height    # 次の行へ進む
-
-            c.save()
-            print(f"PDFとして保存しました: {filename}") # PDF保存完了メッセージ(フルパス含)
+            if result == "None" or not result:
+                print("AIは数式を見つけられませんでした。")
+                return []
             
+            # 結果を改行で分割し、空行を除外してリスト化
+            extracted_equations = [line.strip() for line in result.split('\n') if line.strip()]
+            print(f"AIが抽出した数式: {extracted_equations}")
+            return extracted_equations
+
         except Exception as e:
-            print(f"PDF生成中にエラーが発生しました: {e}")
+            print(f"OpenAI APIでの数式抽出中にエラーが発生しました: {e}")
+            return []
 
 
-    def save_problem_only_pdf(self, full_text, filename):
-        problem_lines = []
-        # 問題文のみを抽出
-        # "問題X:"で始まり、次の"解答X:"または次の"問題Y:"の手前までを抽出する
-        # このパターンは、提供された`practice_problems`の構造に依存します。
-        # re.findall()を使って、問題と解答のペアをリストで取得
-        # 例: [('問題1:', ' 以下のヒストグラムが与えられています。...', '解答1:', ' このヒストグラムから、...'), ...]
-        problem_answer_pairs = re.findall(r'(問題\d+:)(.*?)(解答\d+:)(.*?)(?=(問題\d+:)|$)', full_text, re.DOTALL)
-        
-        extracted_problem_statements_list = []
-        for pair in problem_answer_pairs:
-            # pairはタプル (問題番号, 問題文, 解答番号, 解答文, 次の問題番号or空)
-            # 問題文は pair[1] にある
-            # 余分な改行やスペースをstrip()で除去
-            extracted_problem_statements_list.append(pair[0] + pair[1].strip()) # 例: '問題1: 以下のヒストグラム...'
-        
-        self.convert_to_pdf("\n".join(extracted_problem_statements_list), filename)
-
-    def save_answer_only_pdf(self, full_text, filename):
-        answer_lines = []
-        # "解答X:"で始まり、次の"問題Y:"または文字列の終わりまでを抽出する
-        # `practice_problems`の構造に基づいて、解答部分を抽出
-        answer_pairs = re.findall(r'(解答\d+:)(.*?)(?=(問題\d+:)|$)', full_text, re.DOTALL)
-        
-        extracted_answers_list = []
-        for pair in answer_pairs:
-            # pairはタプル (解答番号, 解答文, 次の問題番号or空)
-            # 解答文は pair[1] にある
-            extracted_answers_list.append(pair[0] + pair[1].strip())
-        
-        self.convert_to_pdf("\n".join(extracted_answers_list), filename)
-
-
-    font_path = os.path.join(settings.BASE_DIR, "pdfs", "fonts", "ipaexm.ttf")
-    pdfmetrics.registerFont(TTFont("IPAexGothic", font_path))
-
-    def convert_to_pdf(self, text, filename):
-        c = canvas.Canvas(filename, pagesize=A4)
-        width, height = A4
-        c.setFont("IPAexGothic", 12)    # 日本語対応フォント
-
-        y = height - 50 # 上から描画開始
-        for line in text.split("\n"):
-            if y < 50:
-                c.showPage()
-                c.setFont("IPAexGothic", 12)
-                y = height - 50
-            c.drawString(50, y, line)
-            y -= 20
-
-        c.save()
-
-
-    # --- グラフ生成メソッド ---
-    def create_graph(self, text, filename):
+# --------------------------------------------------------------------------
+    # グラフ動画生成メソッド (エラーハンドリング・サニタイズ強化 最終版)
+    # --------------------------------------------------------------------------
+    def create_graph_from_latex(self, latex_equation: str, filename: str, quality: str = 'l', **variables):
         """
-        文字起こしテキストからグラフを生成し、PDFとして保存する。
-        グラフが必要な場合はTrueを返す。
+        LaTeX形式の数式を元に関数のグラフを描画するManim動画を生成する。
+        エラーハンドリングと文字列サニタイズを強化した最終バージョン。
         """
-
-        question_prompt = (
-            f"以下のテキストからグラフを生成するための数式を抽出してください。"
-            f"条件として，数式はlatex形式で出力しなければならない．"
-            f"入力は5問の問題とその解答である．\n"
-            f"各問題に対応する数式は，複数あっても1行で出力しなければならない．"
-            f"グラフが必要な場合は数式を、不要な場合は「None」と解答すること。\n\n"
-            f"その際，異なる数式ごとに[,]で区切ること（数式が必要ない問題は空行にする）"  #半角カンマ
-            f"つまり出力は五行である必要がある．\n\n"
-            f"{text}\n\n"
-        )
-
-        if not self.judge_necesally_graph(text):
-            print("グラフは不要と判断されました。")
-            return False
+        # --- STEP 1: 変数の置き換えとLaTeX文字列のサニタイズ ---
+        processed_latex = latex_equation
+        if variables:
+            print(f"変数を置き換えます: {variables}")
+            for key, value in variables.items():
+                processed_latex = processed_latex.replace(key, str(value))
         
-        math_from_text_openai_client = openai_client.chat.completions.create(
+        # ▼▼▼【決定版サニタイズ処理】▼▼▼
+        # 1. アスタリスク `*` をLaTeXの乗算記号 `\times` に置換
+        processed_latex = processed_latex.replace('*', r' \times ')
+        # 2. 前後の `\(` と `\)` を除去
+        processed_latex = processed_latex.strip().replace(r"\(", "").replace(r"\)", "").strip()
+        # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+        
+        print(f"LaTeX入力 (サニタイズ・変数置換後): '{processed_latex}'")
 
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "あなたは優秀な数学者として、与えられた文字起こしテキストからグラフを生成するための数式を抽出してください。"},
-                {"role": "user", "content" : question_prompt}
-            ],
-            max_tokens=200,
-            temperature=0 # 確定的な応答を得るために独創性を0に設定
+
+        # --- STEP 2: LaTeXからPythonの数式文字列への変換 ---
+        def latex_to_python_expr(latex_str: str) -> str:
+            # サニタイズはSTEP1で完了しているが、念のためここでも除去
+            expr = latex_str.strip().replace(r"\(", "").replace(r"\)", "").strip()
+            if expr.startswith('y'):
+                expr = re.sub(r'y\s*=\s*', '', expr)
+            expr = re.sub(r'\\sqrt\{([^}]+)\}', r'np.sqrt(\1)', expr)
+            expr = re.sub(r'\\(sin|cos|tan|log|ln|exp)', r'np.\1', expr)
+            expr = re.sub(r'\\frac\{([^}]+)\}\{([^}]+)\}', r'((\1)/(\2))', expr)
+            expr = re.sub(r'\\pi', 'np.pi', expr)
+            expr = expr.replace('{', '(').replace('}', ')')
+            expr = expr.replace(r'\left(', '(').replace(r'\right)', ')')
+            expr = expr.replace('^', '**')
+            protected_funcs = {}
+            def protect_func(match):
+                key = f"##NPFUNC{len(protected_funcs)}##"
+                protected_funcs[key] = match.group(0)
+                return key
+            expr = re.sub(r'np\.\w+', protect_func, expr)
+            expr = re.sub(r'(?<=[0-9a-zA-Z\)])(?=[a-zA-Z\(])', '*', expr)
+            expr = re.sub(r'(?<=\))(?=\d)', '*', expr)
+            for key, value in protected_funcs.items():
+                expr = expr.replace(key, value)
+            return expr
+
+        # STEP1でサニタイズ済みの文字列を渡す
+        python_expr = latex_to_python_expr(processed_latex)
+        print(f"変換後のPython式: '{python_expr}'")
+
+
+        # --- STEP 3: Manimコードの生成 (エラー検知強化版) ---
+        manim_code = f"""
+import sys
+from manim import *
+import numpy as np
+
+class FormulaScene(Scene):
+    def construct(self):
+        axes = Axes(
+            x_range=[-5, 5, 1], y_range=[-5, 5, 1],
+            axis_config={{"include_tip": True, "include_numbers": True}}
         )
-        result = math_from_text_openai_client.choices[0].message.content.rstrip("\r\n")
+        axes.add_coordinates()
+        try:
+            graph = axes.plot(lambda x: {python_expr}, color=BLUE)
+            label = axes.get_graph_label(graph, label=r'''{processed_latex}''')
+            self.play(Create(axes), Create(graph))
+            self.play(Write(label))
+        except Exception as e:
+            error_message = str(e).replace('"', "'").replace("\\n", " ")
+            error_text = Text(f"Error: {{error_message}}", font_size=24, color=RED)
+            self.play(Write(error_text))
+            sys.exit(1)
+        self.wait(2)
+"""
 
-        separated_results = result.split("\n")  # 改行で分割
+        # --- STEP 4: Manimの実行とファイル処理 ---
+        # (このSTEPのPythonコードは変更ありません)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            script_name = "manim_script.py"
+            manim_file_path = os.path.join(tmpdir, script_name)
+            with open(manim_file_path, "w", encoding="utf-8") as f:
+                f.write(manim_code)
+            try:
+                quality_flag = f"-q{quality}"
+                command = ["manim", quality_flag, manim_file_path, "FormulaScene"]
+                print(f"🔄 Manimを実行中... コマンド: {' '.join(command)}")
+                subprocess.run(command, cwd=tmpdir, check=True, capture_output=True, text=True)
+                quality_dirs = {'l': '480p15', 'm': '720p30', 'h': '1080p60', 'k': '2160p60'}
+                quality_dir = quality_dirs.get(quality, '480p15')
+                source_path = os.path.join(tmpdir, "media", "videos", os.path.splitext(script_name)[0], quality_dir, "FormulaScene.mp4")
+                if os.path.exists(source_path):
+                    output_dir = os.path.join(settings.MEDIA_ROOT, "graphs")
+                    os.makedirs(output_dir, exist_ok=True)
+                    final_filename = f"{filename}.mp4"
+                    final_path = os.path.join(output_dir, final_filename)
+                    shutil.move(source_path, final_path)
+                    print(f"✅ グラフ動画を保存しました: {final_path}")
+                    final_url = os.path.join(settings.MEDIA_URL, "graphs", final_filename)
+                    return True, final_url
+                else:
+                    print(f"⚠️ 出力ファイルが見つかりませんでした: {source_path}")
+                    return False, None
+            except subprocess.CalledProcessError as e:
+                print("❌ Manim 実行エラーが発生しました。")
+                print(f"--- STDERR ---\n{e.stderr}")
+                return False, None
+            except FileNotFoundError:
+                print("❌ 'manim' コマンドが見つかりません。DockerコンテナにManimがインストールされているか確認してください。")
+                return False, None
 
-        for idx, line in enumerate(separated_results):
-            latex_expr = line.strip()
+    def latex_to_python(self, latex_equations):
+        """
+        LaTeX形式の数式リストを受け取り、変数が x, y のみで構成されている数式だけを抽出する。
 
-            if latex_expr == "None" or latex_expr == "":
-                print("グラフは不要と判断されました。")
-                continue
+        Args:
+            latex_equations (list of str): LaTeX数式の文字列リスト。
 
-            print(f"グラフを生成するための数式: {latex_expr}")
+        Returns:
+            list of str: x, y のみを含む数式のリスト。
+        """
+        allowed_vars = {'x', 'y'}
+        filtered_equations = []
 
-            manim_code = f"""      # Manimコードを生成（描写→表示→消す）
-        from manim import *
+        for eq in latex_equations:
+            # LaTeXの括り（\( と \)）を除去
+            stripped_eq = eq.strip().replace(r"\(", "").replace(r"\)", "")
+            
+            # 1. LaTeXコマンド（\frac, \sin など）を先に除去する
+            eq_no_commands = re.sub(r'\\[a-zA-Z]+', ' ', stripped_eq)
+            
+            # 2. コマンド除去後の文字列から英小文字変数を抽出する
+            variables = set(re.findall(r"[a-zA-Z]", eq_no_commands))
+            # --- ここまで修正 ---
 
-        class FormulaScene(Scene):
-            def construct(self):
-                tex = MathTex(r\"\"\"{latex_expr}\"\"\")
-                tex.scale(1.2)
-                self.play(Write(tex))
-                self.wait(1)
-                self.play(FadeOut(tex))
-            """
+            # 使用変数が x, y のみかどうかをチェック
+            if variables.issubset(allowed_vars):
+                filtered_equations.append(eq)
+            else:
+                print(f"除外: {eq}（含まれる変数: {variables}）")
 
-            with tempfile.TemporaryDirectory() as tmpdir:
-                manim_file_path = os.path.join(tmpdir, "formula_scene.py")
-                with open(manim_file_path, "w", encoding="utf-8") as f:
-                    f.write(manim_code)
+        return filtered_equations
 
-                try:
-                    # filename: ex) "output.mp4" → "output_0.mp4", "output_1.mp4", ...
-                    output_dir = os.path.join("/app/medias")
-                    os.makedirs(output_dir, exist_ok=True)  # ディレクトリが無ければ作成
-
-                    # 出力ファイル名を構築（例: /app/medias/graph_0.mp4）
-                    output_filename = os.path.join(output_dir, f"graph_{idx}.mp4")
-
-                    subprocess.run([
-                        "manim",
-                        "-qk",
-                        "--format", "mp4",
-                        manim_file_path,
-                        "FormulaScene",
-                        "-o", os.path.basename(output_filename)
-                    ], cwd=tmpdir, check=True)
-
-                    output_path = os.path.join(tmpdir, "media", "videos", "formula_scene", "1080p60", os.path.basename(output_filename))
-                    if os.path.exists(output_path):
-                        os.rename(output_path, output_filename)
-                        print(f"グラフをmp4として保存しました: {output_filename}")
-                    else:
-                        print(f"出力ファイルが見つかりませんでした: {output_filename}")
-                except subprocess.CalledProcessError as e:
-                    print(f"Manim 実行エラー: {e}")
-
-        return True
 
     def _extract_video_id(self, youtube_link):
         """
