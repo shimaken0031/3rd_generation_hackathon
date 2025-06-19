@@ -45,8 +45,6 @@ RUN iconv -f utf-16le -t utf-8 /tmp/requirements.utf16.txt -o /tmp/requirements.
 RUN cat /tmp/requirements.txt
 RUN pip install --upgrade pip
 RUN pip install -r /tmp/requirements.txt
-RUN pip install reportlab
-RUN pip install manim
 RUN rm -rf /root/.cache/pip /tmp/requirements*.txt
 
 # ───────────────────────────────
