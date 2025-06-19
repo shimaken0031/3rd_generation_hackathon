@@ -676,58 +676,70 @@ class YoutubePaidSummarizerAPI(APIView):
 
 class AnswerProcessingAPI(APIView):
     """
-    API to receive a student's answer (JPEG/PDF), process it for corrections,
-    identify habits, and suggest references using OpenAI GPT-4o Vision.
+    API to receive a student's answer (JPEG/PDF) directly in the request body,
+    process it for corrections, identify habits, and suggest references using OpenAI GPT-4o Vision.
     The input PDF/JPEG is assumed to contain both the problem statement and the student's answer.
     """
 
     def post(self, request, *args, **kwargs):
-        answer_file = request.FILES.get('answer_file')
+        # request.FILES は使用しないため、request.body から直接データを取得
+        uploaded_file_data = request.body
+        content_type = request.META.get('HTTP_CONTENT_TYPE') or request.META.get('CONTENT_TYPE')
 
-        if not answer_file:
-            print("エラー: 解答ファイルが提供されていません。")
-            return Response({"error": "解答ファイルが提供されていません。"}, status=status.HTTP_400_BAD_REQUEST)
+        if not uploaded_file_data:
+            print("エラー: リクエストボディにファイルデータが含まれていません。")
+            return Response({"error": "ファイルデータが提供されていません。"}, status=status.HTTP_400_BAD_REQUEST)
         
-        original_filename = answer_file.name
-        file_extension = os.path.splitext(original_filename)[1].lower()
-
-        if file_extension not in ['.jpeg', '.jpg', '.png', '.pdf']:
-            print(f"エラー: サポートされていないファイル形式です: {file_extension}")
-            return Response({"error": "サポートされているファイル形式はJPEG, PNG, PDFのみです。"}, status=status.HTTP_400_BAD_REQUEST)
+        file_extension = ''
+        original_filename = 'uploaded_file' # デフォルトのファイル名
+        
+        # Content-Type からファイル形式を推測
+        if content_type:
+            if 'application/pdf' in content_type:
+                file_extension = '.pdf'
+                original_filename = 'answer.pdf'
+            elif 'image/jpeg' in content_type or 'image/jpg' in content_type:
+                file_extension = '.jpeg'
+                original_filename = 'answer.jpeg'
+            elif 'image/png' in content_type:
+                file_extension = '.png'
+                original_filename = 'answer.png'
+            else:
+                print(f"エラー: サポートされていないContent-Typeです: {content_type}。許可される形式はJPEG, PNG, PDFです。")
+                return Response({"error": "サポートされているファイル形式はJPEG, PNG, PDFのみです。"}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            print("エラー: Content-Typeヘッダーがありません。ファイル形式を判断できません。")
+            return Response({"error": "Content-Typeヘッダーが必須です（例: application/pdf, image/jpeg, image/png）。"}, status=status.HTTP_400_BAD_REQUEST)
 
         temp_dir = None
         temp_filepath = None
+        processed_image_path = None
         extracted_text_from_ocr = "" 
 
         try:
             temp_dir = tempfile.mkdtemp(dir=settings.MEDIA_ROOT)
             print(f"一時ディレクトリを作成しました: {temp_dir}")
 
-            # 一時ファイルとして保存
+            # 取得したバイナリデータを一時ファイルとして保存
             temp_filepath = os.path.join(temp_dir, original_filename)
-            with open(temp_filepath, 'wb+') as destination:
-                for chunk in answer_file.chunks():
-                    destination.write(chunk)
+            with open(temp_filepath, 'wb') as destination: # 'wb+'ではなく'wb'で十分
+                destination.write(uploaded_file_data)
             print(f"解答ファイルを一時保存しました: {temp_filepath}")
 
-            # 2. PDFの場合は画像を抽出 (GPT-4o Visionは画像を入力とするため必須)
-            # 画像ファイルの場合は、そのまま利用
-            processed_image_path = temp_filepath
-
             if file_extension == '.pdf':
-                print("PDFから画像を抽出中 (PyMuPDFを使用)...")
+                print("PDFからの画像抽出を開始します (PyMuPDFを使用)。")
                 try:
                     doc = fitz.open(temp_filepath)
                     if not doc.page_count:
                         print("エラー: PDFにページが含まれていません。")
                         return Response({"error": "PDFにページが含まれていません。", "detail": "Empty PDF document."}, status=status.HTTP_400_BAD_REQUEST)
 
-                    page = doc.load_page(0)  # 最初のページをロード
+                    page = doc.load_page(0)
                     
-                    zoom = 300 / 72 # 300 DPI に相当するズームファクター
+                    zoom = 300 / 72 
                     mat = fitz.Matrix(zoom, zoom)
                     
-                    pix = page.get_pixmap(matrix=mat) # ピクセルマップを取得
+                    pix = page.get_pixmap(matrix=mat)
                     
                     base_name = os.path.splitext(original_filename)[0]
                     processed_image_filename = os.path.join(temp_dir, f'{base_name}_page_0001.png')
@@ -735,53 +747,49 @@ class AnswerProcessingAPI(APIView):
                     pix.save(processed_image_filename)
                     processed_image_path = processed_image_filename
                     doc.close()
-                    print("PyMuPDFでPDFから画像を抽出しました。")
+                    print(f"PyMuPDFでPDFから画像を抽出しました: {processed_image_path}")
                     
-                    # 補助的なTesseract OCR（LLMの参考用）
-                    if os.path.exists(processed_image_path):
-                        image_for_ocr = Image.open(processed_image_path)
-                        extracted_text_from_ocr = pytesseract.image_to_string(image_for_ocr, lang='jpn+eng')
-                        print("PDFから変換された画像に対してTesseract OCRを実行しました。")
-                    else:
-                        print(f"警告: PyMuPDFでの画像変換は成功しましたが、出力ファイルが見つかりません: {processed_image_path}")
-
                 except fitz.EmptyFileError:
-                    print(f"PyMuPDFエラー: 空のPDFファイルです: {temp_filepath}")
+                    print(f"PyMuPDFエラー: 空のPDFファイルがアップロードされました: {temp_filepath}")
                     return Response({"error": "空のPDFファイルです。", "detail": "Empty PDF document."}, status=status.HTTP_400_BAD_REQUEST)
-                # ここを修正！ ↓↓↓
-                except fitz.PasswordError: # PassError を PasswordError に変更
-                    print(f"PyMuPDFエラー: 保護されたPDFファイルです（パスワードが必要です）: {temp_filepath}")
+                except fitz.PasswordError:
+                    print(f"PyMuPDFエラー: パスワードで保護されたPDFファイルです: {temp_filepath}")
                     return Response({"error": "保護されたPDFファイルです。", "detail": "Password protected PDF."}, status=status.HTTP_400_BAD_REQUEST)
                 except Exception as e:
-                    print(f"PyMuPDFでのPDF処理中に予期せぬエラー: {e}")
+                    print(f"PyMuPDFでのPDF画像抽出中に予期せぬエラーが発生しました: {e}")
                     print(f"トレースバック:\n{traceback.format_exc()}")
                     return Response({"error": "PDFからの画像抽出に失敗しました (PyMuPDF)。", "detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
-            # 元々画像ファイルの場合は、直接Tesseract OCRを実行
-            elif file_extension in ['.jpeg', '.jpg', '.png']:
+            else:
+                processed_image_path = temp_filepath
+
+            # Tesseract OCR を実行 (LLMの参考用のため、エラーが発生しても処理を続行)
+            if processed_image_path and os.path.exists(processed_image_path):
+                print("Tesseract OCRによるテキスト抽出を開始します。")
                 try:
-                    image_for_ocr = Image.open(temp_filepath)
+                    image_for_ocr = Image.open(processed_image_path)
                     extracted_text_from_ocr = pytesseract.image_to_string(image_for_ocr, lang='jpn+eng')
-                    print("画像に対してTesseract OCRを実行しました。")
+                    print("Tesseract OCRによるテキスト抽出が完了しました。")
+                except pytesseract.pytesseract.TesseractNotFoundError:
+                    print("エラー: Tesseract OCRがシステムにインストールされていないか、PATHが設定されていません。")
                 except Exception as e:
-                    print(f"Tesseract OCR エラー: {e}")
-                    extracted_text_from_ocr = "[テキスト抽出エラー: Tesseract OCR失敗]"
+                    print(f"Tesseract OCRの実行中にエラーが発生しました: {e}")
+                    print(f"トレースバック:\n{traceback.format_exc()}")
+            else:
+                print("警告: 処理すべき画像ファイルが見つからないため、Tesseract OCRをスキップします。")
 
             # 3. OpenAI GPT-4o Vision で解答内容を解析、手直し、癖の特定
-            print("ステップ3: OpenAI GPT-4o Vision で解答内容を解析、手直し、癖の特定を開始します。")
-            overall_correction_advice = "解析できませんでした。"
+            print("ステップ3: OpenAI GPT-4o Vision で解答内容の解析を開始します。")
             overall_user_habit_analysis = "解析できませんでした。"
 
             if openai_client is None:
-                print("エラー: OpenAI API クライアントがロードされていません。")
+                print("エラー: OpenAI API クライアントが初期化されていません。設定を確認してください。")
                 return Response({"error": "OpenAI API クライアントがロードされていません。設定を確認してください。"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
             try:
-                # 画像ファイルをBase64エンコードしてVision APIに渡す
                 with open(processed_image_path, "rb") as image_file:
                     base64_image = base64.b64encode(image_file.read()).decode('utf-8')
 
-                # プロンプトの調整: 画像から問題文と解答を両方読み取るように指示
                 prompt_text = f"""
 以下の画像には、**問題文と生徒の手書き解答の両方**が含まれています。
 画像を正確に読み取り、**問題文の内容を完全に理解した上で**、それに対する生徒の解答の**全体の解答方針、計算過程、論理展開**について修正点や改善点を**総合的に**指摘してください。
@@ -791,7 +799,7 @@ class AnswerProcessingAPI(APIView):
 ---
 **【参考情報：Tesseract OCRで抽出されたテキスト】**
 この情報は、画像内の手書き文字や複雑なレイアウトが非常に読みにくい場合の補助として利用してください。
-{extracted_text_from_ocr}
+{extracted_text_from_ocr if extracted_text_from_ocr else "（OCRによるテキストは抽出されませんでした）"}
 
 ---
 以下のフォーマットで出力してください。
@@ -814,7 +822,7 @@ class AnswerProcessingAPI(APIView):
                     }
                 ]
                 
-                print("OpenAI GPT-4o Vision API リクエスト送信中...")
+                print("OpenAI GPT-4o Vision APIへのリクエストを送信中...")
                 response_gpt4_vision = openai_client.chat.completions.create(
                     model="gpt-4o",
                     messages=messages,
@@ -825,41 +833,55 @@ class AnswerProcessingAPI(APIView):
                 full_analysis = response_gpt4_vision.choices[0].message.content.strip()
                 print("GPT-4o Visionからの応答を受信しました。")
                 
-                # GPTの出力を解析して全体的な修正案と癖を分ける
                 match_correction_advice = re.search(r'## 全体的な解答の修正案と改善点\n([\s\S]*?)(?=## 解答者の学習の癖と今後のアドバイス|\Z)', full_analysis)
                 if match_correction_advice:
-                    overall_correction_advice = match_correction_advice.group(1).strip()
+                    pass 
                 else:
-                    overall_correction_advice = "「全体的な解答の修正案と改善点」のセクションが見つかりませんでした。LLMの出力形式を確認してください。\n" + full_analysis
+                    print("警告: LLMの出力から「全体的な解答の修正案と改善点」セクションをパースできませんでした。")
 
                 match_habit_analysis = re.search(r'## 解答者の学習の癖と今後のアドバイス\n([\s\S]*)', full_analysis)
                 if match_habit_analysis:
                     overall_user_habit_analysis = match_habit_analysis.group(1).strip()
                 else:
+                    print("警告: LLMの出力から「解答者の学習の癖と今後のアドバイス」セクションをパースできませんでした。")
                     overall_user_habit_analysis = "「解答者の学習の癖と今後のアドバイス」のセクションが見つかりませんでした。"
                         
-                print("解答の総合的な解析が完了しました。")
+                print("解答の総合的な解析処理が完了しました。")
 
-            except openai.APIError as e:
-                print(f"ステップ3エラー: OpenAI GPT-4o Vision API エラー: {e}")
+            except openai.RateLimitError as e:
+                print(f"エラー: OpenAI APIレート制限またはクォータ超過。詳細: {e.message}")
                 print(f"トレースバック:\n{traceback.format_exc()}")
-                overall_correction_advice = f"解答の解析中にOpenAI APIエラーが発生しました: {e.code} - {e.message}"
-                overall_user_habit_analysis = "解答の解析中にエラーが発生しました。"
+                return Response({
+                    "error": "OpenAI APIの使用上限に達しました。", 
+                    "detail": f"OpenAIからのメッセージ: {e.message}"
+                }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+            except openai.APIStatusError as e:
+                print(f"エラー: OpenAI APIからHTTPステータスエラーが返されました: {e.status_code} - {e.response}")
+                print(f"トレースバック:\n{traceback.format_exc()}")
+                return Response({
+                    "error": "OpenAI APIとの通信中にエラーが発生しました。",
+                    "detail": f"HTTPステータス: {e.status_code}, メッセージ: {e.response}"
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            except openai.APIConnectionError as e:
+                print(f"エラー: OpenAI APIへの接続中にエラーが発生しました: {e}")
+                print(f"トレースバック:\n{traceback.format_exc()}")
+                return Response({
+                    "error": "OpenAI APIへのネットワーク接続に失敗しました。",
+                    "detail": str(e)
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             except Exception as e:
-                print(f"ステップ3エラー: 解答解析中に予期せぬエラーが発生しました: {e}")
+                print(f"エラー: 解答解析中に予期せぬOpenAI API関連のエラーが発生しました: {e}")
                 print(f"トレースバック:\n{traceback.format_exc()}")
-                overall_correction_advice = f"解答の解析中にエラーが発生しました: {str(e)}"
-                overall_user_habit_analysis = "解答の解析中にエラーが発生しました。"
+                return Response({"error": "解答の解析中に予期せぬエラーが発生しました。", "detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
             return Response({
-                "extracted_text_from_ocr": extracted_text_from_ocr,
-                "overall_correction_advice": overall_correction_advice,
                 "overall_user_habit_analysis": overall_user_habit_analysis,
             }, status=status.HTTP_200_OK)
 
         except Exception as e:
             traceback_str = traceback.format_exc()
-            print(f"API処理中に予期せぬクリティカルエラーが発生しました: {e}")
+            print(f"API処理の初期段階で予期せぬクリティカルエラーが発生しました: {e}")
             print(f"トレースバック:\n{traceback_str}")
             return Response({"error": "処理中に予期せぬクリティカルエラーが発生しました。", "detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         finally:
