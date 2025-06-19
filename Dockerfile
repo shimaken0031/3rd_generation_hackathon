@@ -20,7 +20,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     pkg-config \
-    libcairo2-dev \
+    libcairo2 \
     libpango1.0-dev \
     python3-dev \
     default-libmysqlclient-dev \
@@ -29,6 +29,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     texlive-latex-extra \
     texlive-latex-recommended \
     ffmpeg \
+    tesseract-ocr \
+    pango1.0-0 \
+    libffi-dev \
     gettext-base \
     && rm -rf /var/lib/apt/lists/*
 
@@ -43,7 +46,6 @@ RUN cat /tmp/requirements.txt
 RUN pip install --upgrade pip
 RUN pip install -r /tmp/requirements.txt
 RUN pip install reportlab
-RUN pip install tesseract
 RUN pip install manim
 RUN rm -rf /root/.cache/pip /tmp/requirements*.txt
 
