@@ -13,6 +13,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import base64 # Base64エンコードのために追加
 import fitz
+import base64
 
 
 # pydubは分割処理では不要になったため、コメントアウトまたは削除を検討
@@ -299,7 +300,7 @@ class YoutubePaidSummarizerAPI(APIView):
                         if after_latex_equations:
                             for i, equation in enumerate(after_latex_equations):
                                 print(f"抽出された数式: {equation}")
-                                create_graph_filename = f"{video_id}graph_{i+1}"
+                                create_graph_filename = f"{video_id}_graph_{i+1}"
                                 success, graph_file_path = self.create_graph_from_latex(
                                     latex_equation=equation,
                                     filename=create_graph_filename,
@@ -326,12 +327,16 @@ class YoutubePaidSummarizerAPI(APIView):
             # 6. Return the response with title, description, transcript, summary, and practice problems.
             combined_output = f"{summary}\n\n{practice_problems}"
 
+            # グラフ動画のbase64エンコードを追加
+            base64_graph_videos = self.encode_all_graph_videos_base64(video_id)
+
             return Response({
                 "title": title,
                 "description": description,
                 "transcript": transcript_text,
                 "summary": summary,
-                "practice_problems": practice_problems
+                "practice_problems": practice_problems,
+                "graph_videos_base64": base64_graph_videos
             }, status=status.HTTP_200_OK)
 
         except Exception as e:
@@ -725,6 +730,33 @@ class FormulaScene(Scene):
             print(f"トレースバック:\n{traceback.format_exc()}")
             return {"index": chunk_index, "text": "", "error": str(e)}
         
+
+    def encode_all_graph_videos_base64(self, video_id):
+        """
+        グラフ動画ファイル({video_id}_graph_{n}.mp4)をbase64エンコードし、連番付きの辞書として返す。
+        """
+        graph_dir = os.path.join(settings.MEDIA_ROOT, "graphs")
+        encoded_videos = {}
+
+        if not os.path.exists(graph_dir):
+            print(f"グラフディレクトリが存在しません: {graph_dir}")
+            return encoded_videos
+
+        for filename in os.listdir(graph_dir):
+            if filename.startswith(f"{video_id}_graph_") and filename.endswith(".mp4"):
+                full_path = os.path.join(graph_dir, filename)
+                try:
+                    with open(full_path, "rb") as f:
+                        encoded = base64.b64encode(f.read()).decode("utf-8")
+                        match = re.search(rf"{video_id}_graph_(\d+)\.mp4", filename)
+                        if match:
+                            index = int(match.group(1))
+                            encoded_videos[f"graph_{index}"] = encoded
+                            print(f"動画 {filename} をbase64エンコードしました。")
+                except Exception as e:
+                    print(f"エラー: 動画ファイル {filename} のエンコード中に例外が発生しました: {e}")
+
+        return encoded_videos
 
 class AnswerProcessingAPI(APIView):
     """
